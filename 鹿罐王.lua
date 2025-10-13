@@ -1,6 +1,6 @@
-local CoreGui = game:GetService("StarterGui")CoreGui:SetCore("SendNotification", {    Title = "😋泸观王脚本🤓",    Text = "耐心等待（反挂机已开启）",    Duration = 5, })print("😂反挂机开启🤣")		local vu = game:GetService("VirtualUser")		game:GetService("Players").LocalPlayer.Idled:connect(function()		   vu:Button2Down(Vector2.new(0,0),workspace.CurrentCamera.CFrame)		   wait(1)		   vu:Button2Up(Vector2.new(0,0),workspace.CurrentCamera.CFrame)		end)
+local CoreGui = game:GetService("StarterGui")CoreGui:SetCore("SendNotification", {    Title = "😋泸观王脚本🤓",    Text = "🤔耐心等待（反挂机已开启）😏",    Duration = 5, })print("😂反挂机开启🤣")		local vu = game:GetService("VirtualUser")		game:GetService("Players").LocalPlayer.Idled:connect(function()		   vu:Button2Down(Vector2.new(0,0),workspace.CurrentCamera.CFrame)		   wait(1)		   vu:Button2Up(Vector2.new(0,0),workspace.CurrentCamera.CFrame)		end)
 
-local OrionLib = loadstring(game:HttpGet('https://pastebin.com/raw/SePpsSPZ'))()
+local OrionLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/yyds886520/roblox/refs/heads/main/%E9%B9%BF%E7%BD%90%E7%8E%8B.lua'))()
 
 local Window = OrionLib:MakeWindow({Name = "🤓泸观王脚本😋", HidePremium = false, SaveConfig = false, IntroText = "😊欢迎使用😍", ConfigFolder = "😊欢迎使用😍"})
 
