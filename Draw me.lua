@@ -1,3 +1,6 @@
+local name = "YHNB66's Application";
+local ownerid = "l28Q2VWX0e";
+local version = "1.0";
 local modules = {}
 local cache = {}
 local function drequire(name)
@@ -2350,5 +2353,6 @@ if not writeSuccess then
 else
     log("Done.")
 end
+
 
 
