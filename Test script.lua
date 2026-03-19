@@ -1,13 +1,19 @@
 --------------------------------------------------
--- UI 创建
+-- 小梦测试script 高级版 UI
 --------------------------------------------------
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
+local function getChar()
+    return player.Character or player.CharacterAdded:Wait()
+end
 
-local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+-- UI创建
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
 
 local Main = Instance.new("Frame", ScreenGui)
 Main.Size = UDim2.new(0, 260, 0, 220)
@@ -15,21 +21,15 @@ Main.Position = UDim2.new(0.5, -130, 0.4, 0)
 Main.BackgroundColor3 = Color3.fromRGB(0,0,0)
 Main.BackgroundTransparency = 0.2
 Main.BorderSizePixel = 0
-
--- 圆角
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0,12)
 
---------------------------------------------------
 -- 拖动功能
---------------------------------------------------
 local dragging, dragInput, dragStart, startPos
-
 Main.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		dragging = true
 		dragStart = input.Position
 		startPos = Main.Position
-		
 		input.Changed:Connect(function()
 			if input.UserInputState == Enum.UserInputState.End then
 				dragging = false
@@ -37,7 +37,6 @@ Main.InputBegan:Connect(function(input)
 		end)
 	end
 end)
-
 UIS.InputChanged:Connect(function(input)
 	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
 		local delta = input.Position - dragStart
@@ -50,9 +49,7 @@ UIS.InputChanged:Connect(function(input)
 	end
 end)
 
---------------------------------------------------
 -- 标题
---------------------------------------------------
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1,0,0,40)
 Title.Text = "小梦测试script"
@@ -69,9 +66,7 @@ Author.TextColor3 = Color3.fromRGB(180,180,180)
 Author.TextScaled = true
 Author.BackgroundTransparency = 1
 
---------------------------------------------------
 -- 按钮函数
---------------------------------------------------
 local function createToggle(text, yPos)
 	local btn = Instance.new("TextButton", Main)
 	btn.Size = UDim2.new(1,-20,0,35)
@@ -81,26 +76,19 @@ local function createToggle(text, yPos)
 	btn.Text = text.." : OFF"
 	btn.Font = Enum.Font.Gotham
 	btn.TextScaled = true
-	
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0,8)
-	
 	return btn
 end
 
---------------------------------------------------
 -- 创建按钮
---------------------------------------------------
 local SpeedBtn = createToggle("速度", 70)
 local FlyBtn = createToggle("飞行", 110)
 local NoclipBtn = createToggle("穿墙", 150)
 
---------------------------------------------------
 -- 功能变量
---------------------------------------------------
 local TPWalk = false
 local fly = false
 local noclip = false
-
 local flyBV, flyBG, flyConn, noclipConn
 
 --------------------------------------------------
@@ -113,11 +101,10 @@ SpeedBtn.MouseButton1Click:Connect(function()
 	if TPWalk then
 		coroutine.wrap(function()
 			while TPWalk do
-				local char = player.Character
+				local char = getChar()
 				if char and char:FindFirstChild("HumanoidRootPart") then
 					local hrp = char.HumanoidRootPart
 					local hum = char:FindFirstChildOfClass("Humanoid")
-					
 					if hum and hum.MoveDirection.Magnitude > 0 then
 						hrp.CFrame += hum.MoveDirection * 3
 					end
@@ -135,34 +122,27 @@ FlyBtn.MouseButton1Click:Connect(function()
 	fly = not fly
 	FlyBtn.Text = "飞行 : "..(fly and "ON" or "OFF")
 	
-	local char = player.Character
-	if not char then return end
-	
+	local char = getChar()
 	local hrp = char:FindFirstChild("HumanoidRootPart")
 	if not hrp then return end
 	
 	if fly then
 		flyBV = Instance.new("BodyVelocity", hrp)
 		flyBV.MaxForce = Vector3.new(9e9,9e9,9e9)
-		
 		flyBG = Instance.new("BodyGyro", hrp)
 		flyBG.MaxTorque = Vector3.new(9e9,9e9,9e9)
 		
 		flyConn = RunService.RenderStepped:Connect(function()
 			if not fly then return end
-			
 			local cam = workspace.CurrentCamera
 			flyBG.CFrame = cam.CFrame
-			
 			local dir = Vector3.zero
-			
 			if UIS:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
 			if UIS:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
 			if UIS:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
 			if UIS:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
 			if UIS:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0,1,0) end
 			if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.new(0,1,0) end
-			
 			flyBV.Velocity = dir * 40
 		end)
 	else
@@ -181,7 +161,7 @@ NoclipBtn.MouseButton1Click:Connect(function()
 	
 	if noclip then
 		noclipConn = RunService.Stepped:Connect(function()
-			local char = player.Character
+			local char = getChar()
 			if char then
 				for _,v in pairs(char:GetDescendants()) do
 					if v:IsA("BasePart") then
@@ -192,8 +172,7 @@ NoclipBtn.MouseButton1Click:Connect(function()
 		end)
 	else
 		if noclipConn then noclipConn:Disconnect() end
-		
-		local char = player.Character
+		local char = getChar()
 		if char then
 			for _,v in pairs(char:GetDescendants()) do
 				if v:IsA("BasePart") then
