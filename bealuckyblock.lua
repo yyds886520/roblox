@@ -1,7 +1,6 @@
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
-local TweenService = game:GetService("TweenService")
 
 local Window = Fluent:CreateWindow({
     Title = "成为幸运方块Hub",
@@ -22,123 +21,6 @@ local Tabs = {
 }
 
 local Options = Fluent.Options
-
-do
-    local loadGui = Instance.new("ScreenGui")
-    loadGui.Name = "LoadingIndicator"
-    loadGui.ResetOnSpawn = false
-    loadGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    loadGui.Parent = game:GetService("CoreGui")
-    
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.fromOffset(240, 50)
-    frame.Position = UDim2.new(1, -20, 1, -70)
-    frame.AnchorPoint = Vector2.new(1, 1)
-    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-    frame.BackgroundTransparency = 0.2
-    frame.BorderSizePixel = 0
-    frame.Parent = loadGui
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = frame
-    
-    local stroke = Instance.new("UIStroke")
-    stroke.Thickness = 1.5
-    stroke.Color = Color3.fromRGB(255, 255, 100)
-    stroke.Transparency = 0.6
-    stroke.Parent = frame
-    
-    local text = Instance.new("TextLabel")
-    text.Size = UDim2.new(1, -20, 1, 0)
-    text.Position = UDim2.fromOffset(10, 0)
-    text.BackgroundTransparency = 1
-    text.Text = "⏳ 请稍等，正在加载功能..."
-    text.TextColor3 = Color3.fromRGB(255, 255, 255)
-    text.TextSize = 14
-    text.Font = Enum.Font.GothamBold
-    text.TextXAlignment = Enum.TextXAlignment.Left
-    text.TextYAlignment = Enum.TextYAlignment.Center
-    text.Parent = frame
-    
-    local endPos = UDim2.new(1, -20, 1, -70)
-    local tweenIn = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = endPos, BackgroundTransparency = 0.2})
-    tweenIn:Play()
-    
-    task.delay(15, function()
-        if loadGui then
-            local tweenOut = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 20, 1, -70), BackgroundTransparency = 1})
-            tweenOut:Play()
-            tweenOut.Completed:Wait()
-            loadGui:Destroy()
-        end
-    end)
-end
-
-do
-    local notificationHolder = Instance.new("ScreenGui")
-    notificationHolder.Name = "CustomNotificationHolder"
-    notificationHolder.ResetOnSpawn = false
-    notificationHolder.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    notificationHolder.Parent = game:GetService("CoreGui")
-    
-    local function ShowNotification(title, isOn)
-        local frame = Instance.new("Frame")
-        frame.Size = UDim2.fromOffset(260, 50)
-        frame.Position = UDim2.new(1, 20, 1, -70)
-        frame.AnchorPoint = Vector2.new(1, 1)
-        frame.BackgroundColor3 = isOn and Color3.fromRGB(40, 80, 40) or Color3.fromRGB(80, 40, 40)
-        frame.BackgroundTransparency = 0.2
-        frame.BorderSizePixel = 0
-        frame.Parent = notificationHolder
-        
-        local uiCorner = Instance.new("UICorner")
-        uiCorner.CornerRadius = UDim.new(0, 8)
-        uiCorner.Parent = frame
-        
-        local uiStroke = Instance.new("UIStroke")
-        uiStroke.Thickness = 1.5
-        uiStroke.Color = isOn and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
-        uiStroke.Transparency = 0.6
-        uiStroke.Parent = frame
-        
-        local titleLabel = Instance.new("TextLabel")
-        titleLabel.Size = UDim2.new(1, -20, 0, 28)
-        titleLabel.Position = UDim2.fromOffset(10, 8)
-        titleLabel.BackgroundTransparency = 1
-        titleLabel.Text = title
-        titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        titleLabel.TextSize = 14
-        titleLabel.Font = Enum.Font.GothamBold
-        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-        titleLabel.TextYAlignment = Enum.TextYAlignment.Top
-        titleLabel.Parent = frame
-        
-        local statusLabel = Instance.new("TextLabel")
-        statusLabel.Size = UDim2.new(1, -20, 0, 20)
-        statusLabel.Position = UDim2.fromOffset(10, 28)
-        statusLabel.BackgroundTransparency = 1
-        statusLabel.Text = isOn and "✓ 已开启" or "✗ 已关闭"
-        statusLabel.TextColor3 = isOn and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
-        statusLabel.TextSize = 12
-        statusLabel.Font = Enum.Font.Gotham
-        statusLabel.TextXAlignment = Enum.TextXAlignment.Left
-        statusLabel.TextYAlignment = Enum.TextYAlignment.Top
-        statusLabel.Parent = frame
-        
-        local endPos = UDim2.new(1, -20, 1, -70)
-        local tweenIn = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = endPos, BackgroundTransparency = 0.2})
-        tweenIn:Play()
-        
-        task.wait(3)
-        local tweenOut = TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 20, 1, -70), BackgroundTransparency = 1})
-        tweenOut:Play()
-        tweenOut.Completed:Wait()
-        frame:Destroy()
-    end
-    
-    _G.ShowToggleNotify = ShowNotification
-end
 
 do
     local CUSTOM_IMAGE = "rbxassetid://10709791437"
@@ -219,7 +101,6 @@ do
     local toggle = Tabs.Main:AddToggle("ACPR", { Title = "自动领取在线时长奖励", Default = false })
     toggle:OnChanged(function(state)
         autoClaiming = state
-        _G.ShowToggleNotify("自动领取在线时长奖励", state)
         if not state then return end
         task.spawn(function()
             while autoClaiming do
@@ -242,7 +123,6 @@ do
     local toggle = Tabs.Main:AddToggle("AR", { Title = "自动重生", Default = false })
     toggle:OnChanged(function(state)
         running = state
-        _G.ShowToggleNotify("自动重生", state)
         if not state then return end
         task.spawn(function()
             while running do
@@ -263,7 +143,6 @@ do
     local toggle = Tabs.Main:AddToggle("ACEPR", { Title = "自动领取活动通行证奖励", Default = false })
     toggle:OnChanged(function(state)
         running = state
-        _G.ShowToggleNotify("自动领取活动通行证奖励", state)
         if not state then return end
         task.spawn(function()
             while running do
@@ -328,7 +207,6 @@ do
     local toggle = Tabs.Main:AddToggle("ABL", { Title = "自动购买最佳幸运方块", Default = false })
     toggle:OnChanged(function(state)
         running = state
-        _G.ShowToggleNotify("自动购买最佳幸运方块", state)
         if not state then return end
         task.spawn(function()
             while running do
@@ -393,7 +271,6 @@ do
     local toggle = Tabs.Upgrades:AddToggle("AMS", { Title = "自动升级速度", Default = false })
     toggle:OnChanged(function(state)
         running = state
-        _G.ShowToggleNotify("自动升级速度", state)
         if not state then return end
         task.spawn(function()
             while running do
@@ -437,7 +314,6 @@ do
         Default = false 
     })
     toggle:OnChanged(function(state)
-        _G.ShowToggleNotify("自选Boss免疫", state)
         if state then
             storedParts = {}
             for _, obj in ipairs(folder:GetChildren()) do
@@ -469,7 +345,6 @@ do
     local toggle = Tabs.Brainrots:AddToggle("AutoFarmToggle", { Title = "自动刷最佳脑红", Default = false })
     toggle:OnChanged(function(state)
         running = state
-        _G.ShowToggleNotify("自动刷最佳脑红", state)
         if state then
             task.spawn(function()
                 while running do
@@ -579,7 +454,6 @@ do
     local toggle = Tabs.Stats:AddToggle("MovementToggle", { Title = "启用自定义幸运方块速度", Default = false })
     toggle:OnChanged(function()
         running = Options.MovementToggle.Value
-        _G.ShowToggleNotify("自定义幸运方块速度", running)
         if not running then
             local model = getMyModel()
             if model and originalSpeed ~= nil then
