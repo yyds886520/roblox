@@ -1,3 +1,72 @@
+local function checkServer()
+    local swingEvent = game:GetService("ReplicatedStorage"):FindFirstChild("Shared")
+    if swingEvent then
+        swingEvent = swingEvent:FindFirstChild("Universe")
+        if swingEvent then
+            swingEvent = swingEvent:FindFirstChild("Network")
+            if swingEvent then
+                swingEvent = swingEvent:FindFirstChild("RemoteEvent")
+                if swingEvent then
+                    swingEvent = swingEvent:FindFirstChild("SwingMelee")
+                end
+            end
+        end
+    end
+    if not swingEvent then
+        local screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "ErrorNotify"
+        screenGui.ResetOnSpawn = false
+        screenGui.Parent = game:GetService("CoreGui")
+        
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.fromOffset(300, 60)
+        frame.AnchorPoint = Vector2.new(1, 1)
+        frame.Position = UDim2.new(1, 50, 1, -70)
+        frame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        frame.BackgroundTransparency = 1
+        frame.BorderSizePixel = 0
+        frame.Parent = screenGui
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 8)
+        corner.Parent = frame
+        
+        local text = Instance.new("TextLabel")
+        text.Size = UDim2.new(1, -20, 1, 0)
+        text.Position = UDim2.fromOffset(10, 0)
+        text.BackgroundTransparency = 1
+        text.Text = "您不在对应的服务器（死铁轨），无法执行此脚本"
+        text.TextColor3 = Color3.fromRGB(255, 255, 255)
+        text.TextSize = 14
+        text.Font = Enum.Font.GothamBold
+        text.TextWrapped = true
+        text.Parent = frame
+        
+        local TweenService = game:GetService("TweenService")
+        
+        local slideIn = TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Position = UDim2.new(1, -20, 1, -70),
+            BackgroundTransparency = 0.1
+        })
+        slideIn:Play()
+        
+        task.wait(8)
+        
+        local slideOut = TweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Position = UDim2.new(1, 50, 1, -70),
+            BackgroundTransparency = 1
+        })
+        slideOut:Play()
+        slideOut.Completed:Wait()
+        
+        screenGui:Destroy()
+        return false
+    end
+    return true
+end
+
+if not checkServer() then return end
+
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local players = game:GetService("Players")
 local localPlayer = players.LocalPlayer
