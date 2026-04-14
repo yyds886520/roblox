@@ -13,10 +13,10 @@ local Window = Fluent:CreateWindow({
 })
 
 local Tabs = {
+    Auto = Window:AddTab({ Title = "自动", Icon = "bot" }),
     Main = Window:AddTab({ Title = "主要", Icon = "box" }),
-    Upgrades = Window:AddTab({ Title = "升级", Icon = "gauge" }),
-    Brainrots = Window:AddTab({ Title = "脑红", Icon = "bot" }),
-    Stats = Window:AddTab({ Title = "属性", Icon = "chart-column" }),
+    Easter = Window:AddTab({ Title = "彩蛋", Icon = "egg" }),
+    Speed = Window:AddTab({ Title = "速度", Icon = "gauge" }),
     Settings = Window:AddTab({ Title = "设置", Icon = "settings" })
 }
 
@@ -98,7 +98,7 @@ do
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local claimGift = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("PlaytimeRewardService"):WaitForChild("RF"):WaitForChild("ClaimGift")
     local autoClaiming = false
-    local toggle = Tabs.Main:AddToggle("ACPR", { Title = "自动领取在线时长奖励", Default = false })
+    local toggle = Tabs.Auto:AddToggle("ACPR", { Title = "自动领取在线时长奖励", Default = false })
     toggle:OnChanged(function(state)
         autoClaiming = state
         if not state then return end
@@ -120,7 +120,7 @@ do
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local rebirth = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("RebirthService"):WaitForChild("RF"):WaitForChild("Rebirth")
     local running = false
-    local toggle = Tabs.Main:AddToggle("AR", { Title = "自动重生", Default = false })
+    local toggle = Tabs.Auto:AddToggle("AR", { Title = "自动重生", Default = false })
     toggle:OnChanged(function(state)
         running = state
         if not state then return end
@@ -140,7 +140,7 @@ do
     local player = Players.LocalPlayer
     local claim = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("SeasonPassService"):WaitForChild("RF"):WaitForChild("ClaimPassReward")
     local running = false
-    local toggle = Tabs.Main:AddToggle("ACEPR", { Title = "自动领取活动通行证奖励", Default = false })
+    local toggle = Tabs.Auto:AddToggle("ACEPR", { Title = "自动领取活动通行证奖励", Default = false })
     toggle:OnChanged(function(state)
         running = state
         if not state then return end
@@ -170,22 +170,6 @@ end
 
 do
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local redeem = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("CodesService"):WaitForChild("RF"):WaitForChild("RedeemCode")
-    local codes = { "GOD", "DEVIL", "ZEUS", "RELEASE", "APRILFOOL" }
-    Tabs.Main:AddButton({
-        Title = "兑换所有礼包码",
-        Callback = function()
-            for _, code in ipairs(codes) do
-                pcall(function() redeem:InvokeServer(code) end)
-                task.wait(1)
-            end
-            Fluent:Notify({ Title = "完成", Content = "已尝试兑换所有码", Duration = 3 })
-        end
-    })
-end
-
-do
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local Players = game:GetService("Players")
     local player = Players.LocalPlayer
     local buy = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("SkinService"):WaitForChild("RF"):WaitForChild("BuySkin")
@@ -204,7 +188,7 @@ do
         return num
     end
     local running = false
-    local toggle = Tabs.Main:AddToggle("ABL", { Title = "自动购买最佳幸运方块", Default = false })
+    local toggle = Tabs.Auto:AddToggle("ABL", { Title = "自动购买最佳幸运方块", Default = false })
     toggle:OnChanged(function(state)
         running = state
         if not state then return end
@@ -255,31 +239,92 @@ do
 end
 
 do
-    Tabs.Upgrades:AddSection("速度升级")
+    Tabs.Auto:AddButton({
+        Title = "拾取所有你的脑红",
+        Callback = function()
+            Window:Dialog({
+                Title = "确认拾取",
+                Content = "要拾取所有脑红吗？",
+                Buttons = {
+                    {
+                        Title = "确认",
+                        Callback = function()
+                            local player = game:GetService("Players").LocalPlayer
+                            local username = player.Name
+                            local plotsFolder = workspace:WaitForChild("Plots")
+                            local myPlot
+                            for i = 1, 5 do
+                                local plot = plotsFolder:FindFirstChild(tostring(i))
+                                if plot and plot:FindFirstChild(tostring(i)) then
+                                    local inner = plot[tostring(i)]
+                                    for _, v in pairs(inner:GetDescendants()) do
+                                        if v:IsA("BillboardGui") and string.find(v.Name, username) then
+                                            myPlot = inner
+                                            break
+                                        end
+                                    end
+                                end
+                                if myPlot then break end
+                            end
+                            if not myPlot then return end
+                            local containers = myPlot:FindFirstChild("Containers")
+                            if not containers then return end
+                            for i = 1, 30 do
+                                local containerFolder = containers:FindFirstChild(tostring(i))
+                                if containerFolder and containerFolder:FindFirstChild(tostring(i)) then
+                                    local container = containerFolder[tostring(i)]
+                                    local innerModel = container:FindFirstChild("InnerModel")
+                                    if innerModel and #innerModel:GetChildren() > 0 then
+                                        local args = { tostring(i) }
+                                        game:GetService("ReplicatedStorage"):WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("ContainerService"):WaitForChild("RF"):WaitForChild("PickupBrainrot"):InvokeServer(unpack(args))
+                                        task.wait(0.1)
+                                    end
+                                end
+                            end
+                            Fluent:Notify({ Title = "完成", Content = "已拾取所有脑红", Duration = 5 })
+                        end
+                    },
+                    { Title = "取消", Callback = function() end }
+                }
+            })
+        end
+    })
+end
+
+do
+    Tabs.Auto:AddSection("速度升级")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local upgrade = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("UpgradesService"):WaitForChild("RF"):WaitForChild("Upgrade")
-    local amount = 1
-    local delayTime = 0.5
     local running = false
 
-    local input = Tabs.Upgrades:AddInput("IMS", { Title = "每次升级点数", Default = "1", Placeholder = "数字", Numeric = true, Finished = false })
-    input:OnChanged(function(v) amount = tonumber(v) or 1 end)
-
-    local slider = Tabs.Upgrades:AddSlider("SMS", { Title = "升级间隔(秒)", Default = 1, Min = 0, Max = 5, Rounding = 1 })
-    slider:OnChanged(function(v) delayTime = v end)
-
-    local toggle = Tabs.Upgrades:AddToggle("AMS", { Title = "自动升级速度", Default = false })
+    local toggle = Tabs.Auto:AddToggle("AMS", { Title = "自动升级速度", Default = false })
     toggle:OnChanged(function(state)
         running = state
         if not state then return end
         task.spawn(function()
             while running do
-                pcall(function() upgrade:InvokeServer("MovementSpeed", amount) end)
-                task.wait(delayTime)
+                pcall(function() upgrade:InvokeServer("MovementSpeed", 1) end)
+                task.wait(0.5)
             end
         end)
     end)
     Options.AMS:SetValue(false)
+end
+
+do
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local redeem = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("CodesService"):WaitForChild("RF"):WaitForChild("RedeemCode")
+    local codes = { "GOD", "DEVIL", "ZEUS", "RELEASE", "APRILFOOL" }
+    Tabs.Main:AddButton({
+        Title = "兑换所有礼包码",
+        Callback = function()
+            for _, code in ipairs(codes) do
+                pcall(function() redeem:InvokeServer(code) end)
+                task.wait(1)
+            end
+            Fluent:Notify({ Title = "完成", Content = "已尝试兑换所有码", Duration = 3 })
+        end
+    })
 end
 
 do
@@ -292,7 +337,7 @@ do
         table.insert(bossOptions, "base" .. i)
     end
     
-    local dropdown = Tabs.Brainrots:AddDropdown("SelectBosses", {
+    local dropdown = Tabs.Main:AddDropdown("SelectBosses", {
         Title = "选择不让抓你的Boss",
         Description = "可多选，选中的Boss将无法抓你",
         Values = bossOptions,
@@ -308,7 +353,7 @@ do
         end
     })
     
-    local toggle = Tabs.Brainrots:AddToggle("RBTD", { 
+    local toggle = Tabs.Main:AddToggle("RBTD", { 
         Title = "启用自选Boss免疫", 
         Description = "开启后，上方选中的Boss无法抓你（其他Boss正常）", 
         Default = false 
@@ -340,9 +385,9 @@ do
 end
 
 do
-    Tabs.Brainrots:AddSection("自动获取终点脑红")
+    Tabs.Main:AddSection("自动获取终点脑红")
     local running = false
-    local toggle = Tabs.Brainrots:AddToggle("AutoFarmToggle", { Title = "自动刷最佳脑红", Default = false })
+    local toggle = Tabs.Main:AddToggle("AutoFarmToggle", { Title = "自动刷最佳脑红", Default = false })
     toggle:OnChanged(function(state)
         running = state
         if state then
@@ -415,6 +460,163 @@ end
 do
     local Players = game:GetService("Players")
     local player = Players.LocalPlayer
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Workspace = game:GetService("Workspace")
+    local RunService = game:GetService("RunService")
+
+    local CollectEggRemote = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("EventService"):WaitForChild("RF"):WaitForChild("CollectEgg")
+    local BossFolder = Workspace:WaitForChild("BossTouchDetectors")
+
+    local TELEPORT_CFRAME = CFrame.new(715, 39, -2122)
+    local WALK_TO_POSITION = Vector3.new(710, 39, -2122)
+    local TELEPORT_DELAY = 2
+    local COLLECT_INTERVAL = 0.3
+    local COLLECT_DURATION = 7
+
+    local autoEnabled = false
+    local suppressConnection = nil
+    local speedSetConnection = nil
+
+    local function suppressBossesExceptBase2()
+        for i = 1, 15 do
+            if i == 2 then
+                local base2 = BossFolder:FindFirstChild("base2")
+                if base2 then
+                    base2.Parent = BossFolder
+                    for _, part in ipairs(base2:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = true
+                            part.CanTouch = true
+                        end
+                    end
+                end
+            else
+                local boss = BossFolder:FindFirstChild("base" .. i)
+                if boss then
+                    for _, part in ipairs(boss:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = false
+                            part.CanTouch = false
+                        end
+                    end
+                    local touchInterest = boss:FindFirstChild("TouchInterest", true)
+                    if touchInterest then touchInterest:Destroy() end
+                    boss.Parent = nil
+                end
+            end
+        end
+    end
+
+    local function startSuppressLoop()
+        if suppressConnection then return end
+        suppressConnection = RunService.Heartbeat:Connect(function()
+            if autoEnabled then suppressBossesExceptBase2() end
+        end)
+    end
+
+    local function stopSuppressLoop()
+        if suppressConnection then
+            suppressConnection:Disconnect()
+            suppressConnection = nil
+        end
+    end
+
+    local function setSpeedLoop()
+        local runningModels = Workspace:WaitForChild("RunningModels")
+        while autoEnabled do
+            for _, model in ipairs(runningModels:GetChildren()) do
+                if model:IsA("Model") and model:GetAttribute("OwnerId") == player.UserId then
+                    model:SetAttribute("MovementSpeed", 550)
+                end
+            end
+            task.wait(0.2)
+        end
+    end
+
+    local function startSpeedSetter()
+        if speedSetConnection then return end
+        speedSetConnection = task.spawn(setSpeedLoop)
+    end
+
+    local function stopSpeedSetter()
+        if speedSetConnection then
+            task.cancel(speedSetConnection)
+            speedSetConnection = nil
+        end
+    end
+
+    local function onCharacterAdded(character)
+        if not autoEnabled then return end
+
+        local root = character:WaitForChild("HumanoidRootPart")
+        local humanoid = character:WaitForChild("Humanoid")
+
+        task.wait(TELEPORT_DELAY)
+
+        root.CFrame = TELEPORT_CFRAME
+        humanoid:MoveTo(WALK_TO_POSITION)
+
+        startSuppressLoop()
+
+        local startTime = tick()
+        local collectThread = task.spawn(function()
+            while autoEnabled and (tick() - startTime < COLLECT_DURATION) do
+                pcall(function() CollectEggRemote:InvokeServer() end)
+                task.wait(COLLECT_INTERVAL)
+            end
+        end)
+
+        repeat task.wait(0.1) until (tick() - startTime >= COLLECT_DURATION) or (not autoEnabled)
+        task.cancel(collectThread)
+
+        stopSuppressLoop()
+
+        if character and character:FindFirstChild("Humanoid") then
+            character.Humanoid.Died:Wait()
+        end
+    end
+
+    local charAddedConn
+    local function startListening()
+        if charAddedConn then charAddedConn:Disconnect() end
+        charAddedConn = player.CharacterAdded:Connect(onCharacterAdded)
+        if player.Character then
+            task.spawn(onCharacterAdded, player.Character)
+        end
+        startSpeedSetter()
+    end
+
+    local function stopListening()
+        if charAddedConn then
+            charAddedConn:Disconnect()
+            charAddedConn = nil
+        end
+        stopSuppressLoop()
+        stopSpeedSetter()
+    end
+
+    local toggle = Tabs.Easter:AddToggle("AutoEggFarm", {
+        Title = "自动刷彩蛋",
+        Description = "全程无需操作",
+        Default = false
+    })
+
+    toggle:OnChanged(function(state)
+        autoEnabled = state
+        if state then
+            startListening()
+            Fluent:Notify({ Title = "彩蛋", Content = "开始自动刷取", Duration = 2 })
+        else
+            stopListening()
+            Fluent:Notify({ Title = "彩蛋", Content = "已停止", Duration = 2 })
+        end
+    end)
+    Options.AutoEggFarm = false
+end
+
+do
+    local Players = game:GetService("Players")
+    local player = Players.LocalPlayer
     local running = false
     local sliderValue = 1000
     local originalSpeed = nil
@@ -451,7 +653,7 @@ do
         end
     end)
 
-    local toggle = Tabs.Stats:AddToggle("MovementToggle", { Title = "启用自定义幸运方块速度", Default = false })
+    local toggle = Tabs.Speed:AddToggle("MovementToggle", { Title = "启用自定义幸运方块速度", Default = false })
     toggle:OnChanged(function()
         running = Options.MovementToggle.Value
         if not running then
@@ -464,61 +666,8 @@ do
         end
     end)
 
-    local slider = Tabs.Stats:AddSlider("MovementSlider", { Title = "幸运方块移动速度", Default = 1000, Min = 50, Max = 3000, Rounding = 0 })
+    local slider = Tabs.Speed:AddSlider("MovementSlider", { Title = "幸运方块移动速度", Default = 1000, Min = 50, Max = 3000, Rounding = 0 })
     slider:OnChanged(function(v) sliderValue = v end)
-end
-
-do
-    Tabs.Main:AddButton({
-        Title = "拾取所有你的脑红",
-        Callback = function()
-            Window:Dialog({
-                Title = "确认拾取",
-                Content = "要拾取所有脑红吗？",
-                Buttons = {
-                    {
-                        Title = "确认",
-                        Callback = function()
-                            local player = game:GetService("Players").LocalPlayer
-                            local username = player.Name
-                            local plotsFolder = workspace:WaitForChild("Plots")
-                            local myPlot
-                            for i = 1, 5 do
-                                local plot = plotsFolder:FindFirstChild(tostring(i))
-                                if plot and plot:FindFirstChild(tostring(i)) then
-                                    local inner = plot[tostring(i)]
-                                    for _, v in pairs(inner:GetDescendants()) do
-                                        if v:IsA("BillboardGui") and string.find(v.Name, username) then
-                                            myPlot = inner
-                                            break
-                                        end
-                                    end
-                                end
-                                if myPlot then break end
-                            end
-                            if not myPlot then return end
-                            local containers = myPlot:FindFirstChild("Containers")
-                            if not containers then return end
-                            for i = 1, 30 do
-                                local containerFolder = containers:FindFirstChild(tostring(i))
-                                if containerFolder and containerFolder:FindFirstChild(tostring(i)) then
-                                    local container = containerFolder[tostring(i)]
-                                    local innerModel = container:FindFirstChild("InnerModel")
-                                    if innerModel and #innerModel:GetChildren() > 0 then
-                                        local args = { tostring(i) }
-                                        game:GetService("ReplicatedStorage"):WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("ContainerService"):WaitForChild("RF"):WaitForChild("PickupBrainrot"):InvokeServer(unpack(args))
-                                        task.wait(0.1)
-                                    end
-                                end
-                            end
-                            Fluent:Notify({ Title = "完成", Content = "已拾取所有脑红", Duration = 5 })
-                        end
-                    },
-                    { Title = "取消", Callback = function() end }
-                }
-            })
-        end
-    })
 end
 
 SaveManager:SetLibrary(Fluent)
