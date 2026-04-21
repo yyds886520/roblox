@@ -477,13 +477,14 @@ do
     local suppressConnection = nil
     local speedSetConnection = nil
 
+    -- 修改后的函数：保留 base2 和 base15，其余 Boss 全部抑制
     local function suppressBossesExceptBase2()
         for i = 1, 15 do
-            if i == 2 then
-                local base2 = BossFolder:FindFirstChild("base2")
-                if base2 then
-                    base2.Parent = BossFolder
-                    for _, part in ipairs(base2:GetDescendants()) do
+            if i == 2 or i == 15 then
+                local boss = BossFolder:FindFirstChild("base" .. i)
+                if boss then
+                    boss.Parent = BossFolder
+                    for _, part in ipairs(boss:GetDescendants()) do
                         if part:IsA("BasePart") then
                             part.CanCollide = true
                             part.CanTouch = true
