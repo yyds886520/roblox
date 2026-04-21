@@ -477,7 +477,6 @@ do
     local suppressConnection = nil
     local speedSetConnection = nil
 
-    -- 修改后的函数：保留 base2 和 base15，其余 Boss 全部抑制
     local function suppressBossesExceptBase2()
         for i = 1, 15 do
             if i == 2 or i == 15 then
