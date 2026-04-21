@@ -469,7 +469,7 @@ do
 
     local TELEPORT_CFRAME = CFrame.new(715, 39, -2122)
     local WALK_TO_POSITION = Vector3.new(707, 39, -2122)
-    local TELEPORT_DELAY = 2
+    local TELEPORT_DELAY = 1
     local COLLECT_INTERVAL = 0.3
     local COLLECT_DURATION = 7
 
