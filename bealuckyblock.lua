@@ -6,7 +6,7 @@ local Window = Fluent:CreateWindow({
     Title = "成为幸运方块Hub",
     SubTitle = "by.小梦",
     TabWidth = 160,
-    Size = UDim2.fromOffset(550, 430),
+    Size = UDim2.fromOffset(550, 350),
     Acrylic = false,
     Theme = "Darker",
     MinimizeKey = Enum.KeyCode.LeftControl
@@ -155,8 +155,8 @@ do
                         local locked = free:FindFirstChild("Locked")
                         local claimed = free:FindFirstChild("Claimed")
                         while running and locked and locked.Visible do task.wait(0.2) end
-                        if running and claimed and claimed.Visible then continue end
-                        if running and locked and not locked.Visible then
+                        if running and claimed and claimed.Visible then
+                        elseif running and locked and not locked.Visible then
                             pcall(function() claim:InvokeServer("Free", i) end)
                         end
                     end
@@ -174,7 +174,7 @@ do
     local player = Players.LocalPlayer
     local buy = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("SkinService"):WaitForChild("RF"):WaitForChild("BuySkin")
     local skins = {
-        "prestige_mogging_luckyblock", "mogging_luckyblock", "colossus _luckyblock",
+        "prestige_mogging_luckyblock", "mogging_luckyblock", "colossus_luckyblock",
         "inferno_luckyblock", "divine_luckyblock", "spirit_luckyblock", "cyborg_luckyblock",
         "void_luckyblock", "gliched_luckyblock", "lava_luckyblock", "freezy_luckyblock", "fairy_luckyblock"
     }
@@ -195,41 +195,45 @@ do
         task.spawn(function()
             while running do
                 local gui = player.PlayerGui:FindFirstChild("Windows")
-                if not gui then task.wait(1) continue end
-                local pickaxeShop = gui:FindFirstChild("PickaxeShop")
-                if not pickaxeShop then task.wait(1) continue end
-                local shopContainer = pickaxeShop:FindFirstChild("ShopContainer")
-                if not shopContainer then task.wait(1) continue end
-                local scrollingFrame = shopContainer:FindFirstChild("ScrollingFrame")
-                if not scrollingFrame then task.wait(1) continue end
-                local cash = player.leaderstats.Cash.Value
-                local bestSkin = nil
-                local bestPrice = 0
-                for i = 1, #skins do
-                    local name = skins[i]
-                    local item = scrollingFrame:FindFirstChild(name)
-                    if item then
-                        local main = item:FindFirstChild("Main")
-                        if main then
-                            local buyFolder = main:FindFirstChild("Buy")
-                            if buyFolder then
-                                local buyButton = buyFolder:FindFirstChild("BuyButton")
-                                if buyButton and buyButton.Visible then
-                                    local cashLabel = buyButton:FindFirstChild("Cash")
-                                    if cashLabel then
-                                        local price = parseCash(cashLabel.Text)
-                                        if cash >= price and price > bestPrice then
-                                            bestSkin = name
-                                            bestPrice = price
+                if gui then
+                    local pickaxeShop = gui:FindFirstChild("PickaxeShop")
+                    if pickaxeShop then
+                        local shopContainer = pickaxeShop:FindFirstChild("ShopContainer")
+                        if shopContainer then
+                            local scrollingFrame = shopContainer:FindFirstChild("ScrollingFrame")
+                            if scrollingFrame then
+                                local cash = player.leaderstats.Cash.Value
+                                local bestSkin = nil
+                                local bestPrice = 0
+                                for i = 1, #skins do
+                                    local name = skins[i]
+                                    local item = scrollingFrame:FindFirstChild(name)
+                                    if item then
+                                        local main = item:FindFirstChild("Main")
+                                        if main then
+                                            local buyFolder = main:FindFirstChild("Buy")
+                                            if buyFolder then
+                                                local buyButton = buyFolder:FindFirstChild("BuyButton")
+                                                if buyButton and buyButton.Visible then
+                                                    local cashLabel = buyButton:FindFirstChild("Cash")
+                                                    if cashLabel then
+                                                        local price = parseCash(cashLabel.Text)
+                                                        if cash >= price and price > bestPrice then
+                                                            bestSkin = name
+                                                            bestPrice = price
+                                                        end
+                                                    end
+                                                end
+                                            end
                                         end
                                     end
+                                end
+                                if bestSkin then
+                                    pcall(function() buy:InvokeServer(bestSkin) end)
                                 end
                             end
                         end
                     end
-                end
-                if bestSkin then
-                    pcall(function() buy:InvokeServer(bestSkin) end)
                 end
                 task.wait(0.5)
             end
@@ -333,7 +337,7 @@ do
     local selectedBosses = {}
     
     local bossOptions = {}
-    for i = 1, 15 do
+    for i = 1, 16 do
         table.insert(bossOptions, "base" .. i)
     end
     
@@ -399,7 +403,7 @@ do
                     local humanoid = character:WaitForChild("Humanoid")
                     local userId = player.UserId
                     local modelsFolder = workspace:WaitForChild("RunningModels")
-                    local target = workspace:WaitForChild("CollectZones"):WaitForChild("base15")
+                    local target = workspace:WaitForChild("CollectZones"):WaitForChild("base16")
 
                     root.CFrame = CFrame.new(715, 39, -2122)
                     task.wait(0.3)
@@ -469,7 +473,7 @@ do
 
     local TELEPORT_CFRAME = CFrame.new(715, 39, -2122)
     local WALK_TO_POSITION = Vector3.new(707, 39, -2122)
-    local TELEPORT_DELAY = 0.5
+    local TELEPORT_DELAY = 2
     local COLLECT_INTERVAL = 0.3
     local COLLECT_DURATION = 7
 
@@ -478,8 +482,8 @@ do
     local speedSetConnection = nil
 
     local function suppressBossesExceptBase2()
-        for i = 1, 15 do
-            if i == 2 or i == 15 then
+        for i = 1, 16 do
+            if i == 2 or i == 16 then
                 local boss = BossFolder:FindFirstChild("base" .. i)
                 if boss then
                     boss.Parent = BossFolder
@@ -611,7 +615,7 @@ do
             Fluent:Notify({ Title = "彩蛋", Content = "已停止", Duration = 2 })
         end
     end)
-    Options.AutoEggFarm = false
+    Options.AutoEggFarm:SetValue(false)
 end
 
 do
