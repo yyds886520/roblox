@@ -318,7 +318,7 @@ end
 do
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local redeem = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("CodesService"):WaitForChild("RF"):WaitForChild("RedeemCode")
-local codes = { "GOD", "DEVIL", "ZEUS", "RELEASE", "CORALUKE", "TR9MP1238", "BIRD", "M2ZF4KYR", "EASTER", "FIX31", "MAGIA" }
+    local codes = { "GOD", "ZEUS", "RELEASE", "CORALUKE", "TR9MP1238", "M2ZF4KYR", "FIX31", "MAGIA" }
     Tabs.Main:AddButton({
         Title = "兑换所有礼包码",
         Callback = function()
