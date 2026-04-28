@@ -97,13 +97,21 @@ Tabs.Info:AddParagraph({ Title = "您的用户ID", Content = " " .. player.UserI
 
 local clientId = "未知"
 pcall(function()
-    if getclientid then clientId = getclientid() end
+    if getclientid then
+        clientId = getclientid()
+    else
+        clientId = game:GetService("RbxAnalyticsService"):GetClientId()
+    end
 end)
 Tabs.Info:AddParagraph({ Title = "您的客户端ID", Content = " " .. clientId })
 
 local region = "未知"
 pcall(function()
-    region = game:GetService("LocalizationService").RobloxLocaleId or "未知"
+    if getregion then
+        region = getregion()          -- 优先用注入器提供的区域信息（如 HK）
+    else
+        region = game:GetService("LocalizationService").RobloxLocaleId or "未知"
+    end
 end)
 Tabs.Info:AddParagraph({ Title = "您的地区", Content = " " .. region })
 
@@ -144,9 +152,28 @@ local timeParagraph = Tabs.Info:AddParagraph({ Title = "时间", Content = " 加
 task.spawn(function()
     while true do
         local pingValue = "N/A"
-        pcall(function()
-            pingValue = math.floor(game:GetService("NetworkClient"):GetNetworkPing() * 1000) .. " ms"
+pcall(function()
+    local success, ping = pcall(function()
+        return Players.LocalPlayer:GetNetworkPing()
+    end)
+    if success and ping then
+        pingValue = math.floor(ping * 1000) .. " ms"
+    else
+        success, ping = pcall(function()
+            return game:GetService("Stats").PerformanceStats.NetworkPing
         end)
+        if success and ping then
+            pingValue = math.floor(ping) .. " ms"
+        else
+            success, ping = pcall(function()
+                return game:GetService("NetworkClient"):GetNetworkPing()
+            end)
+            if success and ping then
+                pingValue = math.floor(ping * 1000) .. " ms"
+            end
+        end
+    end
+end)
         local fpsValue = "N/A"
         pcall(function()
             fpsValue = math.floor(1 / RunService.Heartbeat:Wait()) .. " FPS"
@@ -540,7 +567,6 @@ local function onToggle(animalKey, state)
     refreshESP()
 end
 
--- ESP 页顶部添加“动物透视”标题
 Tabs.ESP:AddSection("动物透视")
 
 Tabs.ESP:AddToggle("DeerESP", { Title = "鹿", Default = false, Callback = function(s) onToggle("Deer", s) end })
@@ -549,11 +575,10 @@ Tabs.ESP:AddToggle("SheepESP", { Title = "羊", Default = false, Callback = func
 Tabs.ESP:AddToggle("CowESP", { Title = "牛", Default = false, Callback = function(s) onToggle("Cow", s) end })
 Tabs.ESP:AddToggle("PigESP", { Title = "猪", Default = false, Callback = function(s) onToggle("Pig", s) end })
 
--- ==================== 自动攻击（极限攻速版）====================
 local AttackRemote = game:GetService("ReplicatedStorage").Systems.ActionsSystem.Network.Attack
 local autoAttackEnabled = false
 local MAX_ATTACK_DISTANCE = 15
-local ATTACK_INTERVAL = 0.01  -- 每秒100次，极限速度
+local ATTACK_INTERVAL = 0.01
 
 local function getPlayerFromRay()
     local camera = workspace.CurrentCamera
