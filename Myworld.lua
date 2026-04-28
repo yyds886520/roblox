@@ -108,11 +108,24 @@ Tabs.Info:AddParagraph({ Title = "您的客户端ID", Content = " " .. clientId 
 local region = "未知"
 pcall(function()
     if getregion then
-        region = getregion()          -- 优先用注入器提供的区域信息（如 HK）
+        region = getregion()
     else
-        region = game:GetService("LocalizationService").RobloxLocaleId or "未知"
+        local success, result = pcall(function()
+            return game:HttpGet("http://ip-api.com/json/")
+        end)
+        if success and result then
+            local data = game:GetService("HttpService"):JSONDecode(result)
+            if data and data.countryCode then
+                region = data.countryCode
+            end
+        end
     end
 end)
+if region == "未知" then
+    pcall(function()
+        region = game:GetService("LocalizationService").RobloxLocaleId or "未知"
+    end)
+end
 Tabs.Info:AddParagraph({ Title = "您的地区", Content = " " .. region })
 
 local language = "未知"
@@ -152,28 +165,28 @@ local timeParagraph = Tabs.Info:AddParagraph({ Title = "时间", Content = " 加
 task.spawn(function()
     while true do
         local pingValue = "N/A"
-pcall(function()
-    local success, ping = pcall(function()
-        return Players.LocalPlayer:GetNetworkPing()
-    end)
-    if success and ping then
-        pingValue = math.floor(ping * 1000) .. " ms"
-    else
-        success, ping = pcall(function()
-            return game:GetService("Stats").PerformanceStats.NetworkPing
-        end)
-        if success and ping then
-            pingValue = math.floor(ping) .. " ms"
-        else
-            success, ping = pcall(function()
-                return game:GetService("NetworkClient"):GetNetworkPing()
+        pcall(function()
+            local success, ping = pcall(function()
+                return Players.LocalPlayer:GetNetworkPing()
             end)
             if success and ping then
                 pingValue = math.floor(ping * 1000) .. " ms"
+            else
+                success, ping = pcall(function()
+                    return game:GetService("Stats").PerformanceStats.NetworkPing
+                end)
+                if success and ping then
+                    pingValue = math.floor(ping) .. " ms"
+                else
+                    success, ping = pcall(function()
+                        return game:GetService("NetworkClient"):GetNetworkPing()
+                    end)
+                    if success and ping then
+                        pingValue = math.floor(ping * 1000) .. " ms"
+                    end
+                end
             end
-        end
-    end
-end)
+        end)
         local fpsValue = "N/A"
         pcall(function()
             fpsValue = math.floor(1 / RunService.Heartbeat:Wait()) .. " FPS"
@@ -202,7 +215,7 @@ local function createAuthorTag(character, playerName)
     billboard.Size = UDim2.new(0, 200, 0, 50)
     billboard.StudsOffset = Vector3.new(0, 3, 0)
     billboard.AlwaysOnTop = true
-    billboard.MaxDistance = 500
+    billboard.MaxDistance = 300
     billboard.Name = "AuthorTag"
 
     local background = Instance.new("Frame")
@@ -577,7 +590,7 @@ Tabs.ESP:AddToggle("PigESP", { Title = "猪", Default = false, Callback = functi
 
 local AttackRemote = game:GetService("ReplicatedStorage").Systems.ActionsSystem.Network.Attack
 local autoAttackEnabled = false
-local MAX_ATTACK_DISTANCE = 15
+local MAX_ATTACK_DISTANCE = 6
 local ATTACK_INTERVAL = 0.01
 
 local function getPlayerFromRay()
