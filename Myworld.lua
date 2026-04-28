@@ -1,7 +1,10 @@
--- ==================== 我的世界Hub（死亡点精准传送修复版）====================
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
+
+local AUTHOR_IDS = {
+    7483594265
+}
 
 local Window = Fluent:CreateWindow({
     Title = "我的世界Hub",
@@ -17,10 +20,10 @@ local Tabs = {
     Info = Window:AddTab({ Title = "信息", Icon = "info" }),
     Main = Window:AddTab({ Title = "主要", Icon = "box" }),
     ESP = Window:AddTab({ Title = "ESP", Icon = "eye" }),
-    Developer = Window:AddTab({ Title = "开发者", Icon = "settings" })
+    PVP = Window:AddTab({ Title = "PVP", Icon = "swords" }),
+    Other = Window:AddTab({ Title = "其他", Icon = "settings" })
 }
 
--- ==================== 悬浮按钮（可拖动）====================
 do
     local CUSTOM_IMAGE = "rbxassetid://10709791437"
     local screenGui = Instance.new("ScreenGui")
@@ -84,7 +87,6 @@ do
     end)
 end
 
--- ==================== 信息标签页（完整版）====================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
@@ -159,7 +161,186 @@ task.spawn(function()
     end
 end)
 
--- ==================== 动物透视系统（ESP）====================
+local authorESPEnabled = false
+local authorTags = {}
+local authorNotificationGui
+
+local function createAuthorTag(character, playerName)
+    if authorTags[character] then return end
+    local head = character:WaitForChild("HeadPart", 10)
+    if not head then return end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Adornee = head
+    billboard.Size = UDim2.new(0, 200, 0, 50)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = 500
+    billboard.Name = "AuthorTag"
+
+    local background = Instance.new("Frame")
+    background.Size = UDim2.new(0, 80, 0, 26)
+    background.AnchorPoint = Vector2.new(0.5, 0.5)
+    background.Position = UDim2.new(0.5, 0, 0.5, 0)
+    background.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+    background.BorderSizePixel = 0
+    background.Parent = billboard
+
+    Instance.new("UICorner", background).CornerRadius = UDim.new(0, 6)
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 2
+    stroke.Color = Color3.fromRGB(255, 0, 0)
+    stroke.Parent = background
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.fromScale(1, 1)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = "作者"
+    textLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+    textLabel.TextStrokeTransparency = 0
+    textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    textLabel.Font = Enum.Font.SourceSansBold
+    textLabel.TextSize = 18
+    textLabel.Parent = background
+
+    billboard.Parent = game:GetService("CoreGui")
+
+    authorTags[character] = {
+        billboard = billboard,
+        stroke = stroke,
+        textLabel = textLabel
+    }
+
+    local hue = 0
+    task.spawn(function()
+        while authorTags[character] do
+            hue = (hue + 0.02) % 1
+            local color = Color3.fromHSV(hue, 1, 1)
+            pcall(function()
+                textLabel.TextColor3 = color
+                stroke.Color = Color3.fromHSV((hue + 0.5) % 1, 1, 1)
+            end)
+            task.wait(0.05)
+        end
+    end)
+end
+
+local function removeAuthorTag(character)
+    local tag = authorTags[character]
+    if tag then
+        tag.billboard:Destroy()
+        authorTags[character] = nil
+    end
+end
+
+local function showAuthorNotification(playerName)
+    if authorNotificationGui then
+        authorNotificationGui:Destroy()
+    end
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "AuthorNotification"
+    gui.ResetOnSpawn = false
+    gui.Parent = game:GetService("CoreGui")
+    authorNotificationGui = gui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 280, 0, 60)
+    frame.Position = UDim2.new(1, -290, 1, -80)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    frame.BackgroundTransparency = 0.2
+    frame.BorderSizePixel = 0
+    frame.Parent = gui
+
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 1
+    stroke.Color = Color3.fromRGB(255, 215, 0)
+    stroke.Parent = frame
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.fromScale(1, 1)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = "检测到作者 " .. playerName .. " 进入游戏"
+    textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textLabel.Font = Enum.Font.SourceSansBold
+    textLabel.TextSize = 16
+    textLabel.Parent = frame
+
+    task.delay(5, function()
+        if authorNotificationGui == gui then
+            gui:Destroy()
+            authorNotificationGui = nil
+        end
+    end)
+end
+
+local function isAuthor(player)
+    for _, id in ipairs(AUTHOR_IDS) do
+        if player.UserId == id then
+            return true
+        end
+    end
+    return false
+end
+
+local function onAuthorAdded(player)
+    if not authorESPEnabled then return end
+    if player == Players.LocalPlayer then return end
+    if isAuthor(player) then
+        showAuthorNotification(player.Name)
+        if player.Character then
+            createAuthorTag(player.Character, player.Name)
+        end
+        player.CharacterAdded:Connect(function(character)
+            createAuthorTag(character, player.Name)
+        end)
+    end
+end
+
+local function onPlayerAdded(player)
+    onAuthorAdded(player)
+end
+
+local function onPlayerRemoving(player)
+    if authorTags[player.Character] then
+        removeAuthorTag(player.Character)
+    end
+end
+
+local function startAuthorESP()
+    authorESPEnabled = true
+    for _, p in ipairs(Players:GetPlayers()) do
+        onAuthorAdded(p)
+    end
+    Players.PlayerAdded:Connect(onPlayerAdded)
+    Players.PlayerRemoving:Connect(onPlayerRemoving)
+end
+
+local function stopAuthorESP()
+    authorESPEnabled = false
+    for character, _ in pairs(authorTags) do
+        removeAuthorTag(character)
+    end
+end
+
+Tabs.Info:AddToggle("AuthorESP", {
+    Title = "开启/关闭作者头衔绘制",
+    Default = true,
+    Callback = function(state)
+        if state then
+            startAuthorESP()
+        else
+            stopAuthorESP()
+        end
+    end
+})
+
+task.spawn(function()
+    startAuthorESP()
+end)
+
 local highlightFolder = Instance.new("Folder")
 highlightFolder.Name = "ESP_Highlights"
 highlightFolder.Parent = nil
@@ -218,11 +399,11 @@ local function getSheepColorText(model)
 end
 
 local targets = {
-    Deer = { text = "鹿哥", dynamicText = nil },
-    Turkey = { text = "坤哥", dynamicText = nil },
+    Deer = { text = "鹿", dynamicText = nil },
+    Turkey = { text = "火鸡", dynamicText = nil },
     Sheep = { text = "羊", dynamicText = getSheepColorText },
     Cow = { text = "牛", dynamicText = nil },
-    Pig = { text = "屁股尬的", dynamicText = nil }
+    Pig = { text = "猪", dynamicText = nil }
 }
 
 local activeColors = {}
@@ -359,13 +540,73 @@ local function onToggle(animalKey, state)
     refreshESP()
 end
 
+-- ESP 页顶部添加“动物透视”标题
+Tabs.ESP:AddSection("动物透视")
+
 Tabs.ESP:AddToggle("DeerESP", { Title = "鹿", Default = false, Callback = function(s) onToggle("Deer", s) end })
 Tabs.ESP:AddToggle("TurkeyESP", { Title = "火鸡", Default = false, Callback = function(s) onToggle("Turkey", s) end })
 Tabs.ESP:AddToggle("SheepESP", { Title = "羊", Default = false, Callback = function(s) onToggle("Sheep", s) end })
 Tabs.ESP:AddToggle("CowESP", { Title = "牛", Default = false, Callback = function(s) onToggle("Cow", s) end })
 Tabs.ESP:AddToggle("PigESP", { Title = "猪", Default = false, Callback = function(s) onToggle("Pig", s) end })
 
--- ==================== 无坠落伤害（主要）====================
+-- ==================== 自动攻击（极限攻速版）====================
+local AttackRemote = game:GetService("ReplicatedStorage").Systems.ActionsSystem.Network.Attack
+local autoAttackEnabled = false
+local MAX_ATTACK_DISTANCE = 15
+local ATTACK_INTERVAL = 0.01  -- 每秒100次，极限速度
+
+local function getPlayerFromRay()
+    local camera = workspace.CurrentCamera
+    if not camera then return nil end
+    local character = Players.LocalPlayer.Character
+    if not character then return nil end
+
+    local ray = camera:ScreenPointToRay(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+    rayParams.FilterDescendantsInstances = {character}
+    
+    local rayResult = workspace:Raycast(ray.Origin, ray.Direction * MAX_ATTACK_DISTANCE, rayParams)
+    if not rayResult then return nil end
+
+    local hitPart = rayResult.Instance
+    local model = hitPart
+    while model do
+        if model:IsA("Model") and model:FindFirstChildOfClass("Humanoid") then
+            return model
+        end
+        model = model.Parent
+    end
+    return nil
+end
+
+local function startAutoAttack()
+    task.spawn(function()
+        while autoAttackEnabled do
+            if autoAttackEnabled then
+                local targetModel = getPlayerFromRay()
+                if targetModel and targetModel ~= Players.LocalPlayer.Character then
+                    pcall(function()
+                        AttackRemote:InvokeServer(targetModel, "4")
+                    end)
+                end
+            end
+            task.wait(ATTACK_INTERVAL)
+        end
+    end)
+end
+
+Tabs.PVP:AddToggle("AutoAttack", {
+    Title = "自动攻击",
+    Default = false,
+    Callback = function(state)
+        autoAttackEnabled = state
+        if state then
+            startAutoAttack()
+        end
+    end
+})
+
 local FallDamageRemote = game:GetService("ReplicatedStorage").Systems.CombatSystem.Network.FallDamage
 local noFallEnabled = false
 local oldNamecall
@@ -401,7 +642,6 @@ game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function()
     end
 end)
 
--- ==================== 夜视（主要）====================
 local nightVisionEnabled = false
 
 local function enableNightVision()
@@ -415,7 +655,6 @@ local function disableNightVision()
     game:GetService("Lighting").Ambient = Color3.new(0, 0, 0)
 end
 
--- ==================== 无限跳（主要）====================
 local infiniteJumpEnabled = false
 local jumpConn = nil
 
@@ -439,10 +678,8 @@ local function disableInfiniteJump()
     end
 end
 
--- ==================== 返回死亡点（主要）精准射线版 ====================
 local lastDeathPosition = nil
 
--- 监听死亡，记录坐标
 game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function(character)
     local humanoid = character:WaitForChild("Humanoid")
     humanoid.Died:Connect(function()
@@ -477,9 +714,8 @@ Tabs.Main:AddButton({
             return
         end
 
-        -- 使用射线检测找到最近实体表面
-        local rayOrigin = lastDeathPosition + Vector3.new(0, 20, 0)  -- 从死亡点上方20格开始向下探测
-        local rayDir = Vector3.new(0, -50, 0)  -- 向下探测50格
+        local rayOrigin = lastDeathPosition + Vector3.new(0, 20, 0)
+        local rayDir = Vector3.new(0, -50, 0)
         local rayParams = RaycastParams.new()
         rayParams.FilterType = Enum.RaycastFilterType.Exclude
         rayParams.FilterDescendantsInstances = {character}
@@ -487,23 +723,17 @@ Tabs.Main:AddButton({
         local rayResult = workspace:Raycast(rayOrigin, rayDir, rayParams)
         local safePos
         if rayResult then
-            -- 找到地面，传送至地表上方3格
             safePos = rayResult.Position + Vector3.new(0, 3, 0)
         else
-            -- 如果射线没有命中，退而求其次，使用死亡点上方10格
             safePos = lastDeathPosition + Vector3.new(0, 10, 0)
         end
 
-        -- 强制移动并冻结速度
         root.CFrame = CFrame.new(safePos)
         root.AssemblyLinearVelocity = Vector3.zero
         root.AssemblyAngularVelocity = Vector3.zero
-
-        Fluent:Notify({ Title = "返回死亡点", Content = "已精准传送", Duration = 3 })
     end
 })
 
--- 主要开关
 Tabs.Main:AddToggle("NoFall", {
     Title = "无伤害落地",
     Default = false,
@@ -528,54 +758,14 @@ Tabs.Main:AddToggle("InfiniteJump", {
     end
 })
 
--- ==================== 开发者工具 ====================
-Tabs.Developer:AddButton({
-    Title = "打开 Dex 资源管理器",
-    Callback = function()
-        local success, result = pcall(function() return game:HttpGet("https://raw.githubusercontent.com/infyiff/backup/main/dex.lua") end)
-        if not success then
-            success, result = pcall(function() return game:HttpGet("https://raw.githubusercontent.com/peyton2465/developer/main/Dex%20Explorer") end)
-        end
-        if success then loadstring(result)() Fluent:Notify({ Title = "Dex", Content = "已打开", Duration = 3 })
-        else Fluent:Notify({ Title = "失败", Content = "加载失败", Duration = 5 }) end
-    end
-})
-
-local errorMessages = {}
-game:GetService("LogService").MessageOut:Connect(function(msg, msgType)
-    if msgType == Enum.MessageType.MessageError then
-        table.insert(errorMessages, tostring(msg))
-        if #errorMessages > 10 then table.remove(errorMessages, 1) end
-    end
-end)
-
-local function setClipboard(text)
-    if syn and syn.set_clipboard then syn.set_clipboard(text)
-    elseif writeclipboard then writeclipboard(text)
-    else pcall(function() game:GetService("ClipboardService"):SetClipboard(text) end) end
-end
-
-Tabs.Developer:AddButton({
-    Title = "复制最新报错",
-    Callback = function()
-        local err = #errorMessages > 0 and errorMessages[#errorMessages] or "无报错"
-        setClipboard(err)
-        Window:Dialog({
-            Title = "已复制",
-            Content = err,
-            Buttons = { { Title = "确定", Callback = function() end } }
-        })
-    end
-})
-
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
 SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({})
 InterfaceManager:SetFolder("FluentScriptHub")
 SaveManager:SetFolder("FluentScriptHub/specific-game")
-InterfaceManager:BuildInterfaceSection(Tabs.Developer)
-SaveManager:BuildConfigSection(Tabs.Developer)
+InterfaceManager:BuildInterfaceSection(Tabs.Other)
+SaveManager:BuildConfigSection(Tabs.Other)
 
 Window:SelectTab(1)
 SaveManager:LoadAutoloadConfig()
