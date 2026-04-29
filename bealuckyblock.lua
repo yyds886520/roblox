@@ -2,23 +2,29 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
+local AUTHOR_IDS = {
+    7483594265
+}
+
 local Window = Fluent:CreateWindow({
     Title = "成为幸运方块Hub",
     SubTitle = "by.小梦",
     TabWidth = 160,
-    Size = UDim2.fromOffset(550, 350),
+    Size = UDim2.fromOffset(550, 360),
     Acrylic = false,
     Theme = "Darker",
     MinimizeKey = Enum.KeyCode.LeftControl
 })
 
 local Tabs = {
-    Auto = Window:AddTab({ Title = "自动", Icon = "bot" }),
+    Info = Window:AddTab({ Title = "信息", Icon = "info" }),
     Main = Window:AddTab({ Title = "主要", Icon = "box" }),
+    Auto = Window:AddTab({ Title = "自动", Icon = "bot" }),
     Easter = Window:AddTab({ Title = "彩蛋", Icon = "egg" }),
     Speed = Window:AddTab({ Title = "速度", Icon = "gauge" }),
     Settings = Window:AddTab({ Title = "设置", Icon = "settings" })
 }
+
 
 local Options = Fluent.Options
 
@@ -94,6 +100,209 @@ do
     end)
 end
 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+Tabs.Info:AddParagraph({ Title = "您的用户昵称", Content = " " .. player.DisplayName })
+Tabs.Info:AddParagraph({ Title = "您的用户名", Content = " " .. player.Name })
+Tabs.Info:AddParagraph({ Title = "您的用户ID", Content = " " .. player.UserId })
+
+local clientId = "未知"
+pcall(function()
+    if getclientid then clientId = getclientid()
+    else clientId = game:GetService("RbxAnalyticsService"):GetClientId() end
+end)
+Tabs.Info:AddParagraph({ Title = "您的客户端ID", Content = " " .. clientId })
+
+local region = "未知"
+pcall(function()
+    if getregion then region = getregion()
+    else
+        local success, result = pcall(function() return game:HttpGet("http://ip-api.com/json/") end)
+        if success and result then
+            local data = game:GetService("HttpService"):JSONDecode(result)
+            if data and data.countryCode then region = data.countryCode end
+        end
+    end
+end)
+if region == "未知" then
+    pcall(function() region = game:GetService("LocalizationService").RobloxLocaleId or "未知" end)
+end
+Tabs.Info:AddParagraph({ Title = "您的地区", Content = " " .. region })
+
+local language = "未知"
+pcall(function() language = player.LocaleId or "未知" end)
+Tabs.Info:AddParagraph({ Title = "您的语言", Content = " " .. language })
+
+local accountAge = 0
+pcall(function() accountAge = player.AccountAge end)
+Tabs.Info:AddParagraph({ Title = "您的账户年龄(天)", Content = " " .. accountAge })
+Tabs.Info:AddParagraph({ Title = "您的账户年龄(年)", Content = " " .. string.format("%.1f", accountAge / 365) })
+
+local executorName = "未知"
+pcall(function() executorName = identifyexecutor() or "未知" end)
+Tabs.Info:AddParagraph({ Title = "您使用的注入器", Content = " " .. executorName })
+
+Tabs.Info:AddParagraph({ Title = "您当前服务器的ID", Content = " " .. game.GameId })
+Tabs.Info:AddParagraph({ Title = "您当前的服务器位置ID", Content = " " .. (game.PlaceId or game.GameId) })
+Tabs.Info:AddParagraph({ Title = "当前服务器总人数", Content = " " .. #Players:GetPlayers() })
+
+local pingParagraph = Tabs.Info:AddParagraph({ Title = "您的Ping", Content = " 加载中..." })
+local fpsParagraph = Tabs.Info:AddParagraph({ Title = "您的FPS", Content = " 加载中..." })
+local timeParagraph = Tabs.Info:AddParagraph({ Title = "时间", Content = " 加载中..." })
+
+task.spawn(function()
+    while true do
+        local pingValue = "N/A"
+        pcall(function()
+            local s, p = pcall(function() return player:GetNetworkPing() end)
+            if s and p then pingValue = math.floor(p * 1000) .. " ms"
+            else
+                s, p = pcall(function() return game:GetService("Stats").PerformanceStats.NetworkPing end)
+                if s and p then pingValue = math.floor(p) .. " ms"
+                else
+                    s, p = pcall(function() return game:GetService("NetworkClient"):GetNetworkPing() end)
+                    if s and p then pingValue = math.floor(p * 1000) .. " ms" end
+                end
+            end
+        end)
+        local fpsValue = "N/A"
+        pcall(function() fpsValue = math.floor(1 / RunService.Heartbeat:Wait()) .. " FPS" end)
+        local timeString = os.date("%H:%M:%S")
+        pcall(function()
+            pingParagraph:SetDesc(" " .. pingValue)
+            fpsParagraph:SetDesc(" " .. fpsValue)
+            timeParagraph:SetDesc(" " .. timeString)
+        end)
+        task.wait(0.5)
+    end
+end)
+
+
+local HEAD_PART_NAME = "Head"
+local authorESPEnabled = false
+local authorTags = {}
+local authorNotificationGui
+
+local function createAuthorTag(character, playerName)
+    if authorTags[character] then return end
+    local head = character:WaitForChild(HEAD_PART_NAME, 10)
+    if not head then return end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Adornee = head
+    billboard.Size = UDim2.new(0, 200, 0, 50)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = 300
+    billboard.Name = "AuthorTag"
+
+    local background = Instance.new("Frame")
+    background.Size = UDim2.new(0, 80, 0, 26)
+    background.AnchorPoint = Vector2.new(0.5, 0.5)
+    background.Position = UDim2.new(0.5, 0, 0.5, 0)
+    background.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+    background.BorderSizePixel = 0
+    background.Parent = billboard
+    Instance.new("UICorner", background).CornerRadius = UDim.new(0, 6)
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 2
+    stroke.Color = Color3.fromRGB(255, 0, 0)
+    stroke.Parent = background
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.fromScale(1, 1)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = "小梦"
+    textLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+    textLabel.TextStrokeTransparency = 0
+    textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    textLabel.Font = Enum.Font.SourceSansBold
+    textLabel.TextSize = 18
+    textLabel.Parent = background
+
+    billboard.Parent = game:GetService("CoreGui")
+    authorTags[character] = { billboard = billboard, stroke = stroke, textLabel = textLabel }
+
+    local hue = 0
+    task.spawn(function()
+        while authorTags[character] do
+            hue = (hue + 0.02) % 1
+            local color = Color3.fromHSV(hue, 1, 1)
+            pcall(function()
+                textLabel.TextColor3 = color
+                stroke.Color = Color3.fromHSV((hue + 0.5) % 1, 1, 1)
+            end)
+            task.wait(0.05)
+        end
+    end)
+end
+
+local function removeAuthorTag(character)
+    local tag = authorTags[character]
+    if tag then tag.billboard:Destroy(); authorTags[character] = nil end
+end
+
+local function showAuthorNotification()
+    if authorNotificationGui then authorNotificationGui:Destroy() end
+    local gui = Instance.new("ScreenGui"); gui.Name = "AuthorNotification"
+    gui.ResetOnSpawn = false; gui.Parent = game:GetService("CoreGui")
+    authorNotificationGui = gui
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 280, 0, 60)
+    frame.Position = UDim2.new(1, -290, 1, -80)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    frame.BackgroundTransparency = 0.2; frame.BorderSizePixel = 0; frame.Parent = gui
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+    local stroke = Instance.new("UIStroke"); stroke.Thickness = 1
+    stroke.Color = Color3.fromRGB(255, 215, 0); stroke.Parent = frame
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.fromScale(1, 1); textLabel.BackgroundTransparency = 1
+    textLabel.Text = "检测到作者当前游戏/进入游戏"
+    textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textLabel.Font = Enum.Font.SourceSansBold; textLabel.TextSize = 16; textLabel.Parent = frame
+    task.delay(5, function()
+        if authorNotificationGui == gui then gui:Destroy(); authorNotificationGui = nil end
+    end)
+end
+
+local function isAuthor(p) for _, id in ipairs(AUTHOR_IDS) do if p.UserId == id then return true end end return false end
+
+local function onAuthorAdded(p)
+    if not authorESPEnabled or p == player then return end
+    if isAuthor(p) then
+        showAuthorNotification()
+        if p.Character then createAuthorTag(p.Character, p.Name) end
+        p.CharacterAdded:Connect(function(char) createAuthorTag(char, p.Name) end)
+    end
+end
+
+Players.PlayerAdded:Connect(onAuthorAdded)
+Players.PlayerRemoving:Connect(function(p) if authorTags[p.Character] then removeAuthorTag(p.Character) end end)
+
+local function startAuthorESP()
+    authorESPEnabled = true
+    for _, p in ipairs(Players:GetPlayers()) do onAuthorAdded(p) end
+end
+
+local function stopAuthorESP()
+    authorESPEnabled = false
+    for c, _ in pairs(authorTags) do removeAuthorTag(c) end
+end
+
+Tabs.Info:AddToggle("AuthorESP", {
+    Title = "作者头街",
+    Default = true,
+    Callback = function(state)
+        if state then startAuthorESP() else stopAuthorESP() end
+    end
+})
+
+task.spawn(startAuthorESP)
+
+
 do
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local claimGift = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("PlaytimeRewardService"):WaitForChild("RF"):WaitForChild("ClaimGift")
@@ -136,8 +345,8 @@ end
 
 do
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local Players = game:GetService("Players")
-    local player = Players.LocalPlayer
+    local Players2 = game:GetService("Players")
+    local player2 = Players2.LocalPlayer
     local claim = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("SeasonPassService"):WaitForChild("RF"):WaitForChild("ClaimPassReward")
     local running = false
     local toggle = Tabs.Auto:AddToggle("ACEPR", { Title = "自动领取活动通行证奖励", Default = false })
@@ -146,7 +355,7 @@ do
         if not state then return end
         task.spawn(function()
             while running do
-                local gui = player:WaitForChild("PlayerGui"):WaitForChild("Windows"):WaitForChild("Event"):WaitForChild("Frame"):WaitForChild("Frame"):WaitForChild("Windows"):WaitForChild("Pass"):WaitForChild("Main"):WaitForChild("ScrollingFrame")
+                local gui = player2:WaitForChild("PlayerGui"):WaitForChild("Windows"):WaitForChild("Event"):WaitForChild("Frame"):WaitForChild("Frame"):WaitForChild("Windows"):WaitForChild("Pass"):WaitForChild("Main"):WaitForChild("ScrollingFrame")
                 for i = 1, 10 do
                     if not running then break end
                     local item = gui:FindFirstChild(tostring(i))
@@ -170,8 +379,8 @@ end
 
 do
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local Players = game:GetService("Players")
-    local player = Players.LocalPlayer
+    local Players2 = game:GetService("Players")
+    local player2 = Players2.LocalPlayer
     local buy = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("SkinService"):WaitForChild("RF"):WaitForChild("BuySkin")
     local skins = {
         "prestige_mogging_luckyblock", "mogging_luckyblock", "colossus_luckyblock",
@@ -194,7 +403,7 @@ do
         if not state then return end
         task.spawn(function()
             while running do
-                local gui = player.PlayerGui:FindFirstChild("Windows")
+                local gui = player2.PlayerGui:FindFirstChild("Windows")
                 if gui then
                     local pickaxeShop = gui:FindFirstChild("PickaxeShop")
                     if pickaxeShop then
@@ -202,7 +411,7 @@ do
                         if shopContainer then
                             local scrollingFrame = shopContainer:FindFirstChild("ScrollingFrame")
                             if scrollingFrame then
-                                local cash = player.leaderstats.Cash.Value
+                                local cash = player2.leaderstats.Cash.Value
                                 local bestSkin = nil
                                 local bestPrice = 0
                                 for i = 1, #skins do
@@ -253,8 +462,8 @@ do
                     {
                         Title = "确认",
                         Callback = function()
-                            local player = game:GetService("Players").LocalPlayer
-                            local username = player.Name
+                            local player3 = game:GetService("Players").LocalPlayer
+                            local username = player3.Name
                             local plotsFolder = workspace:WaitForChild("Plots")
                             local myPlot
                             for i = 1, 5 do
@@ -397,11 +606,11 @@ do
         if state then
             task.spawn(function()
                 while running do
-                    local player = game.Players.LocalPlayer
-                    local character = player.Character or player.CharacterAdded:Wait()
+                    local player4 = game.Players.LocalPlayer
+                    local character = player4.Character or player4.CharacterAdded:Wait()
                     local root = character:WaitForChild("HumanoidRootPart")
                     local humanoid = character:WaitForChild("Humanoid")
-                    local userId = player.UserId
+                    local userId = player4.UserId
                     local modelsFolder = workspace:WaitForChild("RunningModels")
                     local target = workspace:WaitForChild("CollectZones"):WaitForChild("base16")
 
@@ -443,14 +652,14 @@ do
                     until not running or (ownedModel == nil or ownedModel.Parent ~= modelsFolder)
                     if not running then break end
 
-                    local oldCharacter = player.Character
+                    local oldCharacter = player4.Character
                     repeat
                         task.wait(0.2)
-                    until not running or (player.Character ~= oldCharacter and player.Character ~= nil)
+                    until not running or (player4.Character ~= oldCharacter and player4.Character ~= nil)
                     if not running then break end
 
                     task.wait(0.4)
-                    local newChar = player.Character
+                    local newChar = player4.Character
                     local newRoot = newChar:WaitForChild("HumanoidRootPart")
                     newRoot.CFrame = CFrame.new(737, 39, -2118)
                     task.wait(2.1)
@@ -462,11 +671,11 @@ do
 end
 
 do
-    local Players = game:GetService("Players")
-    local player = Players.LocalPlayer
+    local Players2 = game:GetService("Players")
+    local player2 = Players2.LocalPlayer
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local Workspace = game:GetService("Workspace")
-    local RunService = game:GetService("RunService")
+    local RunService2 = game:GetService("RunService")
 
     local CollectEggRemote = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("EventService"):WaitForChild("RF"):WaitForChild("CollectEgg")
     local BossFolder = Workspace:WaitForChild("BossTouchDetectors")
@@ -513,7 +722,7 @@ do
 
     local function startSuppressLoop()
         if suppressConnection then return end
-        suppressConnection = RunService.Heartbeat:Connect(function()
+        suppressConnection = RunService2.Heartbeat:Connect(function()
             if autoEnabled then suppressBossesExceptBase2() end
         end)
     end
@@ -529,7 +738,7 @@ do
         local runningModels = Workspace:WaitForChild("RunningModels")
         while autoEnabled do
             for _, model in ipairs(runningModels:GetChildren()) do
-                if model:IsA("Model") and model:GetAttribute("OwnerId") == player.UserId then
+                if model:IsA("Model") and model:GetAttribute("OwnerId") == player2.UserId then
                     model:SetAttribute("MovementSpeed", 550)
                 end
             end
@@ -583,9 +792,9 @@ do
     local charAddedConn
     local function startListening()
         if charAddedConn then charAddedConn:Disconnect() end
-        charAddedConn = player.CharacterAdded:Connect(onCharacterAdded)
-        if player.Character then
-            task.spawn(onCharacterAdded, player.Character)
+        charAddedConn = player2.CharacterAdded:Connect(onCharacterAdded)
+        if player2.Character then
+            task.spawn(onCharacterAdded, player2.Character)
         end
         startSpeedSetter()
     end
@@ -619,8 +828,8 @@ do
 end
 
 do
-    local Players = game:GetService("Players")
-    local player = Players.LocalPlayer
+    local Players2 = game:GetService("Players")
+    local player2 = Players2.LocalPlayer
     local running = false
     local sliderValue = 1000
     local originalSpeed = nil
@@ -630,7 +839,7 @@ do
         local folder = workspace:FindFirstChild("RunningModels")
         if not folder then return nil end
         for _, model in ipairs(folder:GetChildren()) do
-            if model:GetAttribute("OwnerId") == player.UserId then
+            if model:GetAttribute("OwnerId") == player2.UserId then
                 return model
             end
         end
