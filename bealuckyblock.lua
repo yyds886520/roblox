@@ -6,6 +6,132 @@ local AUTHOR_IDS = {
     7483594265
 }
 
+-- ==================== 公告窗口 ====================
+local function ShowAnnouncement(callback)
+    local announcementGui = Instance.new("ScreenGui")
+    announcementGui.Name = "Announcement"
+    announcementGui.ResetOnSpawn = false
+    announcementGui.Parent = game:GetService("CoreGui")
+
+    local overlay = Instance.new("Frame")
+    overlay.Size = UDim2.fromScale(1, 1)
+    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    overlay.BackgroundTransparency = 0.6
+    overlay.BorderSizePixel = 0
+    overlay.Parent = announcementGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.fromOffset(320, 300)
+    frame.Position = UDim2.fromScale(0.5, 0.5)
+    frame.AnchorPoint = Vector2.new(0.5, 0.5)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    frame.BorderSizePixel = 0
+    frame.BackgroundTransparency = 1
+    frame.Parent = announcementGui
+
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 2
+    stroke.Color = Color3.fromRGB(255, 215, 0)
+    stroke.Transparency = 0.3
+    stroke.Parent = frame
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.fromScale(1, 0.15)
+    title.Position = UDim2.fromOffset(0, 15)
+    title.BackgroundTransparency = 1
+    title.Text = "📢 成为幸运方块Hub"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextSize = 20
+    title.Font = Enum.Font.SourceSansBold
+    title.Parent = frame
+
+    local line = Instance.new("Frame")
+    line.Size = UDim2.fromScale(0.85, 0.005)
+    line.Position = UDim2.fromOffset(24, 50)
+    line.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+    line.BorderSizePixel = 0
+    line.Parent = frame
+
+    local content = Instance.new("TextLabel")
+    content.Size = UDim2.new(0.85, 0, 0.6, 0)
+    content.Position = UDim2.fromOffset(24, 62)
+    content.BackgroundTransparency = 1
+    content.Text = [[此脚本由小梦制作
+
+【更新日志 - 2026年04月25日 周六】
+游戏更新了以下内容：
+• 新Boss基地：base16
+• 新怪物：Slayer
+
+脚本已经同步更新啦
+之前自动刷脑红只支持到base15
+现在已经改成base16了
+Slayer怪物也安排上了
+
+放心使用吧！]]
+    content.TextColor3 = Color3.fromRGB(220, 220, 220)
+    content.TextSize = 13
+    content.Font = Enum.Font.SourceSans
+    content.TextWrapped = true
+    content.TextXAlignment = Enum.TextXAlignment.Left
+    content.LineHeight = 1.4
+    content.Parent = frame
+
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.fromOffset(110, 34)
+    button.Position = UDim2.new(0.5, -55, 0.86, 0)
+    button.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+    button.Text = "我明白"
+    button.TextColor3 = Color3.fromRGB(0, 0, 0)
+    button.TextSize = 15
+    button.Font = Enum.Font.SourceSansBold
+    button.BorderSizePixel = 0
+    button.Parent = frame
+    Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
+
+    local buttonStroke = Instance.new("UIStroke")
+    buttonStroke.Thickness = 1
+    buttonStroke.Color = Color3.fromRGB(255, 255, 255)
+    buttonStroke.Transparency = 0.5
+    buttonStroke.Parent = button
+
+    button.MouseEnter:Connect(function()
+        button.BackgroundColor3 = Color3.fromRGB(255, 235, 100)
+    end)
+    button.MouseLeave:Connect(function()
+        button.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+    end)
+
+    local TweenService = game:GetService("TweenService")
+    frame.BackgroundTransparency = 1
+    frame.Size = UDim2.fromOffset(0, 0)
+
+    local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    local goals = {
+        BackgroundTransparency = 0,
+        Size = UDim2.fromOffset(320, 300)
+    }
+    local tween = TweenService:Create(frame, tweenInfo, goals)
+    tween:Play()
+
+    button.MouseButton1Click:Connect(function()
+        local closeTweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+        local closeGoals = {
+            BackgroundTransparency = 1,
+            Size = UDim2.fromOffset(0, 0)
+        }
+        local closeTween = TweenService:Create(frame, closeTweenInfo, closeGoals)
+        closeTween:Play()
+        closeTween.Completed:Connect(function()
+            announcementGui:Destroy()
+            callback()
+        end)
+    end)
+end
+
+-- ==================== 主窗口 ====================
 local Window = Fluent:CreateWindow({
     Title = "成为幸运方块Hub",
     SubTitle = "by.小梦",
@@ -16,6 +142,8 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.LeftControl
 })
 
+Window.Root.Visible = false
+
 local Tabs = {
     Info = Window:AddTab({ Title = "信息", Icon = "info" }),
     Main = Window:AddTab({ Title = "主要", Icon = "box" }),
@@ -25,15 +153,16 @@ local Tabs = {
     Settings = Window:AddTab({ Title = "设置", Icon = "settings" })
 }
 
-
 local Options = Fluent.Options
 
+-- ==================== 悬浮按钮 ====================
 do
     local CUSTOM_IMAGE = "rbxassetid://10709791437"
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "FluentFloatButton"
     screenGui.ResetOnSpawn = false
     screenGui.Parent = game:GetService("CoreGui")
+    screenGui.Enabled = false
 
     local button = Instance.new("ImageButton")
     button.Size = UDim2.fromOffset(50, 50)
@@ -46,15 +175,11 @@ do
     button.AutoButtonColor = false
     button.Parent = screenGui
 
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(1, 0)
-    corner.Parent = button
-
-    local stroke = Instance.new("UIStroke")
+    Instance.new("UICorner", button).CornerRadius = UDim.new(1, 0)
+    local stroke = Instance.new("UIStroke", button)
     stroke.Thickness = 1
     stroke.Color = Color3.fromRGB(100, 100, 100)
     stroke.Transparency = 0.5
-    stroke.Parent = button
 
     local dragging = false
     local dragStartPos = nil
@@ -87,9 +212,7 @@ do
     end)
 
     button.MouseButton1Click:Connect(function()
-        if Window.Root then
-            Window.Root.Visible = not Window.Root.Visible
-        end
+        if Window.Root then Window.Root.Visible = not Window.Root.Visible end
     end)
 
     button.MouseEnter:Connect(function()
@@ -98,8 +221,14 @@ do
     button.MouseLeave:Connect(function()
         button:TweenSize(UDim2.fromOffset(50, 50), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
     end)
+
+    ShowAnnouncement(function()
+        screenGui.Enabled = true
+        Window.Root.Visible = true
+    end)
 end
 
+-- ==================== 信息页 ====================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
@@ -179,7 +308,7 @@ task.spawn(function()
     end
 end)
 
-
+-- ==================== 作者头街 ====================
 local HEAD_PART_NAME = "Head"
 local authorESPEnabled = false
 local authorTags = {}
@@ -260,7 +389,7 @@ local function showAuthorNotification()
     stroke.Color = Color3.fromRGB(255, 215, 0); stroke.Parent = frame
     local textLabel = Instance.new("TextLabel")
     textLabel.Size = UDim2.fromScale(1, 1); textLabel.BackgroundTransparency = 1
-    textLabel.Text = "检测到作者当前游戏/进入游戏"
+    textLabel.Text = "检测到作者进入游戏"
     textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     textLabel.Font = Enum.Font.SourceSansBold; textLabel.TextSize = 16; textLabel.Parent = frame
     task.delay(5, function()
@@ -302,7 +431,7 @@ Tabs.Info:AddToggle("AuthorESP", {
 
 task.spawn(startAuthorESP)
 
-
+-- ==================== 原有功能完整保留 ====================
 do
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local claimGift = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("PlaytimeRewardService"):WaitForChild("RF"):WaitForChild("ClaimGift")
@@ -893,5 +1022,3 @@ InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
 Window:SelectTab(1)
 SaveManager:LoadAutoloadConfig()
-
-Window.Root.Visible = true
