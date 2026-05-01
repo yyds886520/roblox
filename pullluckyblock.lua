@@ -8,7 +8,20 @@ local AUTHOR_IDS = {
 
 task.spawn(function()
     local removedCount = 0
-    
+
+    local badColors = {
+        Color3.fromRGB(239, 184, 56),
+        Color3.fromRGB(255, 176, 0),
+        Color3.fromRGB(52, 142, 64)
+    }
+
+    local function isBadColor(c)
+        for _, bc in ipairs(badColors) do
+            if c == bc then return true end
+        end
+        return false
+    end
+
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj.Name == "Deals" then
             pcall(function()
@@ -20,7 +33,7 @@ task.spawn(function()
 
     local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
     if playerGui then
-        local hudFolder = playerGui:FindFirstChild("HUD")
+        local hudFolder = playerGui:FindFirstChild("HUD") or playerGui:FindFirstChild("Hud")
         if hudFolder then
             for _, obj in ipairs(hudFolder:GetDescendants()) do
                 if obj.Name == "Deals" then
@@ -33,8 +46,17 @@ task.spawn(function()
         end
     end
 
+    for _, part in ipairs(workspace:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name == "Top" and isBadColor(part.Color) then
+            pcall(function()
+                part:Destroy()
+                removedCount = removedCount + 1
+            end)
+        end
+    end
+
     if removedCount > 0 then
-        print(string.format("✅ 自动清理完成：删除 %d 个 Deals 文件", removedCount))
+        print(string.format("✅ 自动清理完成：删除 %d 个付费元素", removedCount))
     end
 end)
 
@@ -52,7 +74,7 @@ local function ShowAnnouncement(callback)
     overlay.Parent = announcementGui
 
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.fromOffset(340, 360)
+    frame.Size = UDim2.fromOffset(400, 240)
     frame.Position = UDim2.fromScale(0.5, 0.5)
     frame.AnchorPoint = Vector2.new(0.5, 0.5)
     frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
@@ -68,43 +90,42 @@ local function ShowAnnouncement(callback)
     stroke.Parent = frame
 
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.fromScale(1, 0.12)
-    title.Position = UDim2.fromOffset(0, 15)
+    title.Size = UDim2.fromScale(1, 0.15)
+    title.Position = UDim2.fromOffset(0, 10)
     title.BackgroundTransparency = 1
     title.Text = "📢 拉取幸运方块助手 - 更新日志"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.TextSize = 20
+    title.TextSize = 16
     title.Font = Enum.Font.SourceSansBold
     title.Parent = frame
 
     local line = Instance.new("Frame")
-    line.Size = UDim2.fromScale(0.85, 0.005)
-    line.Position = UDim2.fromOffset(24, 48)
+    line.Size = UDim2.fromScale(0.9, 0.005)
+    line.Position = UDim2.fromOffset(20, 42)
     line.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
     line.BorderSizePixel = 0
     line.Parent = frame
 
     local content = Instance.new("TextLabel")
-    content.Size = UDim2.new(0.88, 0, 0.65, 0)
-    content.Position = UDim2.fromOffset(22, 58)
+    content.Size = UDim2.new(0.92, -40, 0.58, 0)
+    content.Position = UDim2.fromOffset(18, 50)
     content.BackgroundTransparency = 1
     content.Text = [[此脚本由小梦制作
 
+更新时间：]] .. os.date("%Y-%m-%d %H:%M:%S") .. [[
+
 【本次更新内容】
-• 移除：自动拾取金钱功能（效率问题）
-• 新增：启动时自动清理Deals文件
-• 新增：世界传送功能（8个世界）
-• 修复：自动升级房屋循环逻辑
-• 优化：公告窗口比例调整
-• 移除：怪物相关功能（不再研究）
+• 新增：按颜色自动删除付费感压板（黄/深绿）
+• 优化：启动自动清理更全面
+• 调整：公告尺寸优化
 
 【现有功能】
 自动：哑铃、购买哑铃、重生、升级房屋、升级拉动
-工具：世界传送、移除VIP门、移除墙壁
+工具：世界传送、移除VIP门、移除墙壁、自动清理付费元素
 
 感谢使用！]]
     content.TextColor3 = Color3.fromRGB(220, 220, 220)
-    content.TextSize = 13
+    content.TextSize = 12
     content.Font = Enum.Font.SourceSans
     content.TextWrapped = true
     content.TextXAlignment = Enum.TextXAlignment.Left
@@ -112,12 +133,12 @@ local function ShowAnnouncement(callback)
     content.Parent = frame
 
     local button = Instance.new("TextButton")
-    button.Size = UDim2.fromOffset(110, 34)
-    button.Position = UDim2.new(0.5, -55, 0.90, 0)
+    button.Size = UDim2.fromOffset(90, 30)
+    button.Position = UDim2.new(0.5, -45, 0.88, 0)
     button.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
     button.Text = "我明白"
     button.TextColor3 = Color3.fromRGB(0, 0, 0)
-    button.TextSize = 15
+    button.TextSize = 14
     button.Font = Enum.Font.SourceSansBold
     button.BorderSizePixel = 0
     button.Parent = frame
@@ -137,7 +158,7 @@ local function ShowAnnouncement(callback)
     local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
     local goals = {
         BackgroundTransparency = 0,
-        Size = UDim2.fromOffset(340, 360)
+        Size = UDim2.fromOffset(400, 240)
     }
     local tween = TweenService:Create(frame, tweenInfo, goals)
     tween:Play()
