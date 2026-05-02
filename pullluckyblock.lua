@@ -115,14 +115,13 @@ local function ShowAnnouncement(callback)
 更新时间：]] .. os.date("%Y-%m-%d %H:%M:%S") .. [[
 
 【本次更新内容】
-• 新增：秒拉取功能（可开关）
-• 新增：PVP标签 - 范围攻击功能
+• 新增：秒拉取功能（点击按钮生效）
+• 移除：范围功能（兼容性问题）
 • 优化：启动自动清理更全面
 • 调整：公告尺寸优化
 
 【现有功能】
 自动：哑铃、购买哑铃、重生、升级房屋、升级拉动
-PVP：范围攻击(自定义大小/透明度/颜色/队伍检测)
 功能：秒拉取、世界传送、移除VIP门、移除墙壁、自动清理付费元素
 
 感谢使用！]]
@@ -196,7 +195,6 @@ local Tabs = {
     Info = Window:AddTab({ Title = "信息", Icon = "info" }),
     Main = Window:AddTab({ Title = "主要", Icon = "box" }),
     Auto = Window:AddTab({ Title = "自动", Icon = "bot" }),
-    PVP = Window:AddTab({ Title = "PVP", Icon = "crosshair" }),
     Teleport = Window:AddTab({ Title = "世界传送", Icon = "map-pin" }),
     Other = Window:AddTab({ Title = "其他", Icon = "settings" })
 }
@@ -596,136 +594,20 @@ local function removeWalls()
     Fluent:Notify({ Title = "移除墙壁", Content = "已移除 " .. removedCount .. " 个墙壁", Duration = 3 })
 end
 
-local HitboxSettings = {
-    Enabled = false,
-    Size = 15,
-    Transparency = 0.9,
-    TeamCheck = false,
-    Color = BrickColor.new("Really blue")
-}
-
-local function applyHitbox()
-    for _, targetPlayer in ipairs(Players:GetPlayers()) do
-        if targetPlayer == player then continue end
-        local character = targetPlayer.Character
-        if not character then continue end
-        local hrp = character:FindFirstChild("HumanoidRootPart")
-        if not hrp then continue end
-
-        if HitboxSettings.Enabled then
-            local canApply = true
-            if HitboxSettings.TeamCheck and player.Team == targetPlayer.Team then
-                canApply = false
-            end
-            if canApply then
-                pcall(function()
-                    hrp.Size = Vector3.new(HitboxSettings.Size, HitboxSettings.Size, HitboxSettings.Size)
-                    hrp.Transparency = HitboxSettings.Transparency
-                    hrp.BrickColor = HitboxSettings.Color
-                    hrp.Material = "Neon"
-                    hrp.CanCollide = false
-                end)
-            else
-                pcall(function()
-                    hrp.Size = Vector3.new(2, 2, 1)
-                    hrp.Transparency = 1
-                    hrp.Material = "Plastic"
-                    hrp.CanCollide = false
-                end)
-            end
-        else
-            pcall(function()
-                hrp.Size = Vector3.new(2, 2, 1)
-                hrp.Transparency = 1
-                hrp.Material = "Plastic"
-                hrp.CanCollide = false
-            end)
-        end
-    end
-end
-
-RunService.RenderStepped:Connect(applyHitbox)
-
-Tabs.PVP:AddSection("范围攻击")
-Tabs.PVP:AddToggle("HitboxEnabled", {
-    Title = "开启范围",
-    Default = false,
-    Callback = function(state)
-        HitboxSettings.Enabled = state
-    end
-})
-Tabs.PVP:AddTextbox("HitboxSize", {
-    Title = "范围大小",
-    Default = "15",
-    Callback = function(value)
-        local num = tonumber(value)
-        if num then
-            HitboxSettings.Size = num
-        end
-    end
-})
-Tabs.PVP:AddTextbox("HitboxTransparency", {
-    Title = "透明度",
-    Default = "0.9",
-    Callback = function(value)
-        local num = tonumber(value)
-        if num then
-            HitboxSettings.Transparency = num
-        end
-    end
-})
-Tabs.PVP:AddToggle("HitboxTeamCheck", {
-    Title = "队伍检测",
-    Default = false,
-    Callback = function(state)
-        HitboxSettings.TeamCheck = state
-    end
-})
-Tabs.PVP:AddDropdown("HitboxColor", {
-    Title = "范围颜色",
-    Values = {
-        "Really blue",
-        "Really black",
-        "Really red",
-        "Really pink",
-        "Really brown",
-        "Really yellow",
-        "Really green",
-        "Really orange",
-        "Really purple",
-        "Really light gray"
-    },
-    Default = "Really blue",
-    Callback = function(selected)
-        HitboxSettings.Color = BrickColor.new(selected)
-    end
-})
-
-local instantPullEnabled = false
-
 Tabs.Main:AddSection("功能")
-Tabs.Main:AddToggle("InstantPull", {
+Tabs.Main:AddButton({
     Title = "秒拉取",
-    Default = false,
-    Callback = function(state)
-        instantPullEnabled = state
-    end
-})
-
-task.spawn(function()
-    while true do
-        if instantPullEnabled then
-            for _, prompt in ipairs(workspace:GetDescendants()) do
-                if prompt:IsA("ProximityPrompt") then
-                    pcall(function()
-                        prompt.HoldDuration = 0.01
-                    end)
-                end
+    Callback = function()
+        for _, prompt in ipairs(workspace:GetDescendants()) do
+            if prompt:IsA("ProximityPrompt") then
+                pcall(function()
+                    prompt.HoldDuration = 0.01
+                end)
             end
         end
-        task.wait(0.1)
+        Fluent:Notify({ Title = "秒拉取", Content = "已将所有互动时间设为0.01秒", Duration = 2 })
     end
-end)
+})
 
 Tabs.Auto:AddSection("自动锻炼")
 Tabs.Auto:AddToggle("AutoDumbell", { Title = "自动哑铃", Default = false, Callback = function(state) autoDumbellEnabled = state; if state then startAutoDumbell() else stopAutoDumbell() end end })
