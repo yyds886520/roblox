@@ -3,7 +3,7 @@ local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/d
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "皮套哥斯拉Hub",
+    Title = "哥斯拉皮套Hub",
     SubTitle = "by.小梦",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 360),
@@ -15,7 +15,7 @@ local Window = Fluent:CreateWindow({
 Window.Root.Visible = true
 
 local Tabs = {
-    Main = Window:AddTab({ Title = "主要", Icon = "box" }),
+    ESP = Window:AddTab({ Title = "透视", Icon = "eye" }),
     Other = Window:AddTab({ Title = "其他", Icon = "settings" })
 }
 
@@ -86,25 +86,99 @@ do
     end)
 end
 
-Tabs.Main:AddButton({
-    Title = "移除哥斯拉",
-    Callback = function()
-        local kitFolder = workspace:FindFirstChild("kit")
-        if kitFolder then
-            pcall(function()
-                kitFolder:Destroy()
-                Fluent:Notify({
-                    Title = "移除哥斯拉",
-                    Content = "哥斯拉已移除",
-                    Duration = 3
-                })
-            end)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+local espEnabled = false
+local billboards = {}
+
+local function createBillboard(model)
+    if billboards[model] then return end
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "GodzillaESP"
+    billboard.Adornee = model:FindFirstChild("Head") or model:FindFirstChild("HumanoidRootPart")
+    billboard.Size = UDim2.new(0, 200, 0, 60)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = 500
+    billboard.Parent = model
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.fromScale(1, 1)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255, 0, 0)
+    label.TextStrokeTransparency = 0
+    label.Font = Enum.Font.SourceSansBold
+    label.TextSize = 14
+    label.Parent = billboard
+    billboards[model] = billboard
+end
+
+local function removeBillboard(model)
+    if billboards[model] then
+        billboards[model]:Destroy()
+        billboards[model] = nil
+    end
+    for _, obj in ipairs(model:GetChildren()) do
+        if obj.Name == "GodzillaESP" and obj:IsA("BillboardGui") then
+            obj:Destroy()
+        end
+    end
+end
+
+local function updateESP()
+    task.spawn(function()
+        while espEnabled do
+            local char = player.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            local kitFolder = workspace:FindFirstChild("kit")
+            if kitFolder then
+                for _, model in ipairs(kitFolder:GetChildren()) do
+                    if model:IsA("Model") and model.Name:lower() == "ai" and model ~= char then
+                        local hum = model:FindFirstChild("Humanoid")
+                        local hrp = model:FindFirstChild("HumanoidRootPart")
+                        if hum and hum.Health > 0 and hrp then
+                            if not billboards[model] then
+                                createBillboard(model)
+                            end
+                            local b = billboards[model]
+                            if b then
+                                local label = b:FindFirstChildWhichIsA("TextLabel")
+                                if label and root then
+                                    local dist = (hrp.Position - root.Position).Magnitude
+                                    label.Text = "哥斯拉\n[" .. string.format("%.1f", dist) .. "米]"
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            for model, _ in pairs(billboards) do
+                if not model:FindFirstChild("Humanoid") or model.Humanoid.Health <= 0 or not model:FindFirstChild("HumanoidRootPart") then
+                    removeBillboard(model)
+                end
+            end
+            task.wait(0.5)
+        end
+    end)
+end
+
+local function clearESP()
+    for model, _ in pairs(billboards) do
+        removeBillboard(model)
+    end
+    billboards = {}
+end
+
+Tabs.ESP:AddToggle("EnableESP", {
+    Title = "透视怪物",
+    Default = false,
+    Callback = function(state)
+        espEnabled = state
+        if state then
+            updateESP()
         else
-            Fluent:Notify({
-                Title = "移除哥斯拉",
-                Content = "移除失败",
-                Duration = 3
-            })
+            clearESP()
         end
     end
 })
