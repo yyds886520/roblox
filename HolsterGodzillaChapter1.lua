@@ -16,6 +16,7 @@ Window.Root.Visible = true
 
 local Tabs = {
     ESP = Window:AddTab({ Title = "透视", Icon = "eye" }),
+    Teleport = Window:AddTab({ Title = "传送", Icon = "map-pin" }),
     Other = Window:AddTab({ Title = "其他", Icon = "settings" })
 }
 
@@ -92,6 +93,43 @@ local player = Players.LocalPlayer
 
 local espEnabled = false
 local billboards = {}
+local screenDistanceGui
+
+local function createScreenGui()
+    if screenDistanceGui then screenDistanceGui:Destroy() end
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "MonsterDistance"
+    gui.ResetOnSpawn = false
+    gui.Parent = game:GetService("CoreGui")
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.fromOffset(200, 30)
+    label.Position = UDim2.fromScale(0.5, 0.1)
+    label.AnchorPoint = Vector2.new(0.5, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255, 0, 0)
+    label.TextStrokeTransparency = 0
+    label.Font = Enum.Font.SourceSansBold
+    label.TextSize = 20
+    label.Text = "哥斯拉: --米"
+    label.Parent = gui
+    screenDistanceGui = gui
+end
+
+local function updateScreenDistance(dist)
+    if screenDistanceGui then
+        local label = screenDistanceGui:FindFirstChildWhichIsA("TextLabel")
+        if label then
+            label.Text = "哥斯拉: " .. string.format("%.1f", dist) .. "米"
+        end
+    end
+end
+
+local function destroyScreenGui()
+    if screenDistanceGui then
+        screenDistanceGui:Destroy()
+        screenDistanceGui = nil
+    end
+end
 
 local function createBillboard(model)
     if billboards[model] then return end
@@ -132,12 +170,20 @@ local function updateESP()
             local char = player.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             local kitFolder = workspace:FindFirstChild("kit")
+            local closestDist = math.huge
+
             if kitFolder then
                 for _, model in ipairs(kitFolder:GetChildren()) do
                     if model:IsA("Model") and model.Name:lower() == "ai" and model ~= char then
                         local hum = model:FindFirstChild("Humanoid")
                         local hrp = model:FindFirstChild("HumanoidRootPart")
                         if hum and hum.Health > 0 and hrp then
+                            if root then
+                                local dist = (hrp.Position - root.Position).Magnitude
+                                if dist < closestDist then
+                                    closestDist = dist
+                                end
+                            end
                             if not billboards[model] then
                                 createBillboard(model)
                             end
@@ -153,11 +199,19 @@ local function updateESP()
                     end
                 end
             end
+
+            if closestDist ~= math.huge then
+                updateScreenDistance(closestDist)
+            else
+                updateScreenDistance(0)
+            end
+
             for model, _ in pairs(billboards) do
                 if not model:FindFirstChild("Humanoid") or model.Humanoid.Health <= 0 or not model:FindFirstChild("HumanoidRootPart") then
                     removeBillboard(model)
                 end
             end
+
             task.wait(0.5)
         end
     end)
@@ -168,6 +222,7 @@ local function clearESP()
         removeBillboard(model)
     end
     billboards = {}
+    destroyScreenGui()
 end
 
 Tabs.ESP:AddToggle("EnableESP", {
@@ -176,9 +231,59 @@ Tabs.ESP:AddToggle("EnableESP", {
     Callback = function(state)
         espEnabled = state
         if state then
+            createScreenGui()
             updateESP()
         else
             clearESP()
+        end
+    end
+})
+
+local safeZonePosition = Vector3.new(-171.49, -451.59, -153.56)
+local generatorRoomPosition = Vector3.new(-12.83, -9.90, -143.77)
+local spawnPosition = Vector3.new(-6.98, -9.84, -0.95)
+
+Tabs.Teleport:AddButton({
+    Title = "传送安全区",
+    Callback = function()
+        local char = player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            pcall(function()
+                char.HumanoidRootPart.CFrame = CFrame.new(safeZonePosition)
+            end)
+            Fluent:Notify({ Title = "传送", Content = "已传送到安全区", Duration = 2 })
+        else
+            Fluent:Notify({ Title = "传送失败", Content = "角色未加载", Duration = 2 })
+        end
+    end
+})
+
+Tabs.Teleport:AddButton({
+    Title = "传送发电室",
+    Callback = function()
+        local char = player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            pcall(function()
+                char.HumanoidRootPart.CFrame = CFrame.new(generatorRoomPosition)
+            end)
+            Fluent:Notify({ Title = "传送", Content = "已传送到发电室", Duration = 2 })
+        else
+            Fluent:Notify({ Title = "传送失败", Content = "角色未加载", Duration = 2 })
+        end
+    end
+})
+
+Tabs.Teleport:AddButton({
+    Title = "传送出生点(看监控)",
+    Callback = function()
+        local char = player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            pcall(function()
+                char.HumanoidRootPart.CFrame = CFrame.new(spawnPosition)
+            end)
+            Fluent:Notify({ Title = "传送", Content = "已传送到出生点(看监控)", Duration = 2 })
+        else
+            Fluent:Notify({ Title = "传送失败", Content = "角色未加载", Duration = 2 })
         end
     end
 })
