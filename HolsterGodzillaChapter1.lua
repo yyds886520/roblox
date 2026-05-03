@@ -3,7 +3,7 @@ local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/d
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "哥斯拉皮套Hub",
+    Title = "哥斯拉皮套Hub - 第一章",
     SubTitle = "by.小梦",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 360),
@@ -93,41 +93,41 @@ local player = Players.LocalPlayer
 
 local espEnabled = false
 local billboards = {}
-local screenDistanceGui
+local screenDistanceLabel
 
 local function createScreenGui()
-    if screenDistanceGui then screenDistanceGui:Destroy() end
+    if screenDistanceLabel then return end
     local gui = Instance.new("ScreenGui")
-    gui.Name = "MonsterDistance"
+    gui.Name = "MonsterDistances"
     gui.ResetOnSpawn = false
     gui.Parent = game:GetService("CoreGui")
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.fromOffset(200, 30)
-    label.Position = UDim2.fromScale(0.5, 0.1)
-    label.AnchorPoint = Vector2.new(0.5, 0)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 0, 0)
-    label.TextStrokeTransparency = 0
-    label.Font = Enum.Font.SourceSansBold
-    label.TextSize = 20
-    label.Text = "哥斯拉: --米"
-    label.Parent = gui
-    screenDistanceGui = gui
-end
 
-local function updateScreenDistance(dist)
-    if screenDistanceGui then
-        local label = screenDistanceGui:FindFirstChildWhichIsA("TextLabel")
-        if label then
-            label.Text = "哥斯拉: " .. string.format("%.1f", dist) .. "米"
-        end
-    end
+    screenDistanceLabel = Instance.new("TextLabel")
+    screenDistanceLabel.Size = UDim2.fromScale(1, 0)
+    screenDistanceLabel.Position = UDim2.fromScale(0.5, 0.92)
+    screenDistanceLabel.AnchorPoint = Vector2.new(0.5, 0)
+    screenDistanceLabel.BackgroundTransparency = 1
+    screenDistanceLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+    screenDistanceLabel.TextStrokeTransparency = 0.5
+    screenDistanceLabel.Font = Enum.Font.SourceSansBold
+    screenDistanceLabel.TextSize = 14
+    screenDistanceLabel.Text = ""
+    screenDistanceLabel.Parent = gui
 end
 
 local function destroyScreenGui()
-    if screenDistanceGui then
-        screenDistanceGui:Destroy()
-        screenDistanceGui = nil
+    if screenDistanceLabel then
+        screenDistanceLabel.Parent:Destroy()
+        screenDistanceLabel = nil
+    end
+end
+
+local function updateScreenDistance(dist)
+    if not screenDistanceLabel then return end
+    if dist == math.huge or dist <= 0 then
+        screenDistanceLabel.Text = "哥斯拉: --米"
+    else
+        screenDistanceLabel.Text = "哥斯拉: " .. string.format("%.1f", dist) .. "米"
     end
 end
 
@@ -144,7 +144,7 @@ local function createBillboard(model)
     local label = Instance.new("TextLabel")
     label.Size = UDim2.fromScale(1, 1)
     label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 0, 0)
+    label.TextColor3 = Color3.fromRGB(255, 80, 80)
     label.TextStrokeTransparency = 0
     label.Font = Enum.Font.SourceSansBold
     label.TextSize = 14
@@ -200,11 +200,7 @@ local function updateESP()
                 end
             end
 
-            if closestDist ~= math.huge then
-                updateScreenDistance(closestDist)
-            else
-                updateScreenDistance(0)
-            end
+            updateScreenDistance(closestDist)
 
             for model, _ in pairs(billboards) do
                 if not model:FindFirstChild("Humanoid") or model.Humanoid.Health <= 0 or not model:FindFirstChild("HumanoidRootPart") then
@@ -293,7 +289,7 @@ InterfaceManager:SetLibrary(Fluent)
 SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({})
 InterfaceManager:SetFolder("FluentScriptHub")
-SaveManager:SetFolder("FluentScriptHub/godzilla-hub")
+SaveManager:SetFolder("FluentScriptHub/godzilla-chapter1")
 InterfaceManager:BuildInterfaceSection(Tabs.Other)
 SaveManager:BuildConfigSection(Tabs.Other)
 
