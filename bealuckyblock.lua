@@ -6,7 +6,38 @@ local AUTHOR_IDS = {
     7483594265
 }
 
--- ==================== 公告窗口 ====================
+task.spawn(function()
+    local removedCount = 0
+
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj.Name == "STARTER_PACK" then
+            pcall(function()
+                obj:Destroy()
+                removedCount = removedCount + 1
+            end)
+        end
+    end
+
+    local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+    if playerGui then
+        local hudFolder = playerGui:FindFirstChild("HUD") or playerGui:FindFirstChild("Hud")
+        if hudFolder then
+            for _, obj in ipairs(hudFolder:GetDescendants()) do
+                if obj.Name == "STARTER_PACK" then
+                    pcall(function()
+                        obj:Destroy()
+                        removedCount = removedCount + 1
+                    end)
+                end
+            end
+        end
+    end
+
+    if removedCount > 0 then
+        print(string.format("✅ 自动清理完成：删除 %d 个 STARTER_PACK 文件", removedCount))
+    end
+end)
+
 local function ShowAnnouncement(callback)
     local announcementGui = Instance.new("ScreenGui")
     announcementGui.Name = "Announcement"
@@ -21,7 +52,7 @@ local function ShowAnnouncement(callback)
     overlay.Parent = announcementGui
 
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.fromOffset(320, 300)
+    frame.Size = UDim2.fromOffset(320, 320)
     frame.Position = UDim2.fromScale(0.5, 0.5)
     frame.AnchorPoint = Vector2.new(0.5, 0.5)
     frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
@@ -60,15 +91,11 @@ local function ShowAnnouncement(callback)
     content.BackgroundTransparency = 1
     content.Text = [[此脚本由小梦制作
 
-【更新日志 - 2026年04月25日 周六】
-游戏更新了以下内容：
-• 新Boss基地：base16
-• 新怪物：Slayer
+更新时间：]] .. os.date("%Y-%m-%d %H:%M:%S") .. [[
 
-脚本已经同步更新啦
-之前自动刷脑红只支持到base15
-现在已经改成base16了
-Slayer怪物也安排上了
+【本次更新内容】
+• 新增：启动自动清理 STARTER_PACK
+• 清理范围：PlayerGui/HUD 及 Workspace
 
 放心使用吧！]]
     content.TextColor3 = Color3.fromRGB(220, 220, 220)
@@ -111,7 +138,7 @@ Slayer怪物也安排上了
     local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
     local goals = {
         BackgroundTransparency = 0,
-        Size = UDim2.fromOffset(320, 300)
+        Size = UDim2.fromOffset(320, 320)
     }
     local tween = TweenService:Create(frame, tweenInfo, goals)
     tween:Play()
@@ -131,7 +158,6 @@ Slayer怪物也安排上了
     end)
 end
 
--- ==================== 主窗口 ====================
 local Window = Fluent:CreateWindow({
     Title = "成为幸运方块Hub",
     SubTitle = "by.小梦",
@@ -155,7 +181,6 @@ local Tabs = {
 
 local Options = Fluent.Options
 
--- ==================== 悬浮按钮 ====================
 do
     local CUSTOM_IMAGE = "rbxassetid://10709791437"
     local screenGui = Instance.new("ScreenGui")
@@ -228,7 +253,6 @@ do
     end)
 end
 
--- ==================== 信息页 ====================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
@@ -308,7 +332,6 @@ task.spawn(function()
     end
 end)
 
--- ==================== 作者头街 ====================
 local HEAD_PART_NAME = "Head"
 local authorESPEnabled = false
 local authorTags = {}
@@ -431,7 +454,6 @@ Tabs.Info:AddToggle("AuthorESP", {
 
 task.spawn(startAuthorESP)
 
--- ==================== 原有功能完整保留 ====================
 do
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local claimGift = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("PlaytimeRewardService"):WaitForChild("RF"):WaitForChild("ClaimGift")
