@@ -74,7 +74,7 @@ local function ShowAnnouncement(callback)
     overlay.Parent = announcementGui
 
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.fromOffset(400, 240)
+    frame.Size = UDim2.fromOffset(400, 280)
     frame.Position = UDim2.fromScale(0.5, 0.5)
     frame.AnchorPoint = Vector2.new(0.5, 0.5)
     frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
@@ -90,43 +90,44 @@ local function ShowAnnouncement(callback)
     stroke.Parent = frame
 
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.fromScale(1, 0.15)
-    title.Position = UDim2.fromOffset(0, 10)
+    title.Size = UDim2.fromScale(1, 0.12)
+    title.Position = UDim2.fromOffset(0, 20)
     title.BackgroundTransparency = 1
     title.Text = "📢 拉取幸运方块助手 - 更新日志"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.TextSize = 16
+    title.TextSize = 18
     title.Font = Enum.Font.SourceSansBold
     title.Parent = frame
 
     local line = Instance.new("Frame")
     line.Size = UDim2.fromScale(0.9, 0.005)
-    line.Position = UDim2.fromOffset(20, 42)
+    line.Position = UDim2.fromOffset(20, 52)
     line.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
     line.BorderSizePixel = 0
     line.Parent = frame
 
     local content = Instance.new("TextLabel")
     content.Size = UDim2.new(0.92, -40, 0.58, 0)
-    content.Position = UDim2.fromOffset(18, 50)
+    content.Position = UDim2.fromOffset(18, 60)
     content.BackgroundTransparency = 1
     content.Text = [[此脚本由小梦制作
 
 更新时间：]] .. os.date("%Y-%m-%d %H:%M:%S") .. [[
 
 【本次更新内容】
-• 新增：范围攻击（可调节大小、透明度、颜色）
-• 优化：公告文字更通俗易懂
-• 调整：移除部分冗余功能，提升稳定性
+• 新增：自动拉取幸运方块
+• 新增：范围攻击
+• 新增：公告音效与动画
+• 优化：公告说明更易懂
 
 【现有功能】
-自动：自动锻炼、自动购买哑铃、自动重生、自动升级房屋、自动升级拉动
-范围：自定义受击范围，一键开启
-工具：世界传送、移除VIP门、移除墙壁、自动清理付费弹窗
+自动：自动锻炼、自动升级、自动拉取方块
+范围：自定义受击范围
+工具：世界传送、移除VIP门、清理付费弹窗
 
 感谢使用！]]
     content.TextColor3 = Color3.fromRGB(220, 220, 220)
-    content.TextSize = 12
+    content.TextSize = 13
     content.Font = Enum.Font.SourceSans
     content.TextWrapped = true
     content.TextXAlignment = Enum.TextXAlignment.Left
@@ -134,12 +135,12 @@ local function ShowAnnouncement(callback)
     content.Parent = frame
 
     local button = Instance.new("TextButton")
-    button.Size = UDim2.fromOffset(90, 30)
-    button.Position = UDim2.new(0.5, -45, 0.88, 0)
+    button.Size = UDim2.fromOffset(100, 34)
+    button.Position = UDim2.new(0.5, -50, 0.90, 0)
     button.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
     button.Text = "我明白"
     button.TextColor3 = Color3.fromRGB(0, 0, 0)
-    button.TextSize = 14
+    button.TextSize = 15
     button.Font = Enum.Font.SourceSansBold
     button.BorderSizePixel = 0
     button.Parent = frame
@@ -159,12 +160,19 @@ local function ShowAnnouncement(callback)
     local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
     local goals = {
         BackgroundTransparency = 0,
-        Size = UDim2.fromOffset(400, 240)
+        Size = UDim2.fromOffset(400, 280)
     }
     local tween = TweenService:Create(frame, tweenInfo, goals)
     tween:Play()
 
     button.MouseButton1Click:Connect(function()
+        local sound = Instance.new("Sound")
+        sound.SoundId = "rbxassetid://7334239757"
+        sound.Volume = 1
+        sound.Parent = game:GetService("CoreGui")
+        sound:Play()
+        sound.Ended:Connect(function() sound:Destroy() end)
+
         local closeTweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
         local closeGoals = {
             BackgroundTransparency = 1,
@@ -275,7 +283,6 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
--- ==================== 秒拉取 ====================
 Tabs.Main:AddSection("功能")
 Tabs.Main:AddButton({
     Title = "秒拉取",
@@ -291,7 +298,6 @@ Tabs.Main:AddButton({
     end
 })
 
--- ==================== 范围攻击 ====================
 local rangeEnabled = false
 local rangeSize = 50
 local rangeTransparency = 0.9
@@ -325,7 +331,6 @@ end
 RunService.RenderStepped:Connect(applyRange)
 
 Tabs.Range:AddSection("范围攻击")
-
 Tabs.Range:AddToggle("RangeEnabled", {
     Title = "开启范围",
     Default = false,
@@ -386,7 +391,6 @@ Tabs.Range:AddDropdown("RangeColor", {
     end
 })
 
--- ==================== 自动功能 ====================
 local Remotes = game:GetService("ReplicatedStorage").SharedModules.Network.Remotes
 local DumbellRemote = Remotes:FindFirstChild("Activate Dumbell")
 local BuyDumbellRemote = Remotes:FindFirstChild("Buy Dumbell")
@@ -483,6 +487,24 @@ local function stopAutoUpgradeCarry()
     if upgradeCarryConnection then upgradeCarryConnection:Disconnect() upgradeCarryConnection = nil end
 end
 
+local autoStealEnabled = false
+local stealConnection = nil
+
+local function trySteal()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") and obj.ActionText == "Steal" then
+            local path = obj:GetFullName():lower()
+            if path:find("lucky") then
+                pcall(function()
+                    obj.HoldDuration = 0
+                    obj:InputHoldBegin()
+                    obj:InputHoldEnd()
+                end)
+            end
+        end
+    end
+end
+
 Tabs.Auto:AddSection("自动锻炼")
 Tabs.Auto:AddToggle("AutoDumbell", { Title = "自动哑铃", Default = false, Callback = function(state) autoDumbellEnabled = state; if state then startAutoDumbell() else stopAutoDumbell() end end })
 Tabs.Auto:AddSection("自动购买")
@@ -492,8 +514,23 @@ Tabs.Auto:AddToggle("AutoRebirth", { Title = "自动重生", Default = false, Ca
 Tabs.Auto:AddSection("自动升级")
 Tabs.Auto:AddToggle("AutoUpgradeFloor", { Title = "自动升级房屋", Default = false, Callback = function(state) autoUpgradeFloorEnabled = state; if state then startAutoUpgradeFloor() else stopAutoUpgradeFloor() end end })
 Tabs.Auto:AddToggle("AutoUpgradeCarry", { Title = "自动升级拉动", Default = false, Callback = function(state) autoUpgradeCarryEnabled = state; if state then startAutoUpgradeCarry() else stopAutoUpgradeCarry() end end })
+Tabs.Auto:AddSection("自动拉取")
+Tabs.Auto:AddToggle("AutoSteal", {
+    Title = "自动拉取幸运方块",
+    Default = false,
+    Callback = function(state)
+        autoStealEnabled = state
+        if state then
+            stealConnection = RunService.Heartbeat:Connect(trySteal)
+        else
+            if stealConnection then
+                stealConnection:Disconnect()
+                stealConnection = nil
+            end
+        end
+    end
+})
 
--- ==================== 工具 ====================
 local function removeVIPDoors()
     local removedCount = 0
     for _, obj in ipairs(workspace:GetDescendants()) do
@@ -534,7 +571,6 @@ Tabs.Main:AddButton({ Title = "移除VIP门", Callback = removeVIPDoors })
 Tabs.Main:AddSection("地图控制")
 Tabs.Main:AddButton({ Title = "移除墙壁", Callback = removeWalls })
 
--- ==================== 世界传送 ====================
 Tabs.Teleport:AddSection("世界传送")
 
 Tabs.Teleport:AddButton({
