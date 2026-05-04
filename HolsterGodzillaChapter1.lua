@@ -3,7 +3,7 @@ local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/d
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "皮套出生Hub - 第一章",
+    Title = "哥斯拉皮套Hub - 第一章",
     SubTitle = "by.小梦",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 360),
@@ -92,6 +92,11 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local uis = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local safeZonePosition = Vector3.new(-171.49, -451.59, -153.56)
+local generatorRoomPosition = Vector3.new(-12.83, -9.90, -143.77)
+local spawnPosition = Vector3.new(-6.98, -9.84, -0.95)
 
 -- ==================== 怪物透视（高亮轮廓） ====================
 local monsterEspEnabled = false
@@ -217,21 +222,13 @@ Tabs.ESP:AddToggle("EnableMonsterESP", {
 })
 
 -- ==================== 传送点 ====================
-local safeZonePosition = Vector3.new(-171.49, -451.59, -153.56)
-local generatorRoomPosition = Vector3.new(-12.83, -9.90, -143.77)
-local spawnPosition = Vector3.new(-6.98, -9.84, -0.95)
-
 Tabs.Teleport:AddButton({
     Title = "传送安全区",
     Callback = function()
         local char = player.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
-            pcall(function()
-                char.HumanoidRootPart.CFrame = CFrame.new(safeZonePosition)
-            end)
+            pcall(function() char.HumanoidRootPart.CFrame = CFrame.new(safeZonePosition) end)
             Fluent:Notify({ Title = "传送", Content = "已传送到安全区", Duration = 2 })
-        else
-            Fluent:Notify({ Title = "传送失败", Content = "角色未加载", Duration = 2 })
         end
     end
 })
@@ -241,12 +238,8 @@ Tabs.Teleport:AddButton({
     Callback = function()
         local char = player.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
-            pcall(function()
-                char.HumanoidRootPart.CFrame = CFrame.new(generatorRoomPosition)
-            end)
+            pcall(function() char.HumanoidRootPart.CFrame = CFrame.new(generatorRoomPosition) end)
             Fluent:Notify({ Title = "传送", Content = "已传送到发电室", Duration = 2 })
-        else
-            Fluent:Notify({ Title = "传送失败", Content = "角色未加载", Duration = 2 })
         end
     end
 })
@@ -256,12 +249,8 @@ Tabs.Teleport:AddButton({
     Callback = function()
         local char = player.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
-            pcall(function()
-                char.HumanoidRootPart.CFrame = CFrame.new(spawnPosition)
-            end)
+            pcall(function() char.HumanoidRootPart.CFrame = CFrame.new(spawnPosition) end)
             Fluent:Notify({ Title = "传送", Content = "已传送到出生点(看监控)", Duration = 2 })
-        else
-            Fluent:Notify({ Title = "传送失败", Content = "角色未加载", Duration = 2 })
         end
     end
 })
@@ -271,18 +260,12 @@ Tabs.Main:AddButton({
     Title = "半自动收集报纸",
     Callback = function()
         local char = player.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then
-            Fluent:Notify({ Title = "收集失败", Content = "角色未加载", Duration = 2 })
-            return
-        end
+        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
         local root = char.HumanoidRootPart
         local camera = workspace.CurrentCamera
 
         local postersFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Posters")
-        if not postersFolder then
-            Fluent:Notify({ Title = "收集失败", Content = "未找到 Posters 文件夹", Duration = 2 })
-            return
-        end
+        if not postersFolder then return end
 
         local function scanPosters()
             local list = {}
@@ -300,9 +283,7 @@ Tabs.Main:AddButton({
             return
         end
 
-        table.sort(posters, function(a, b)
-            return (a.Position - root.Position).Magnitude < (b.Position - root.Position).Magnitude
-        end)
+        table.sort(posters, function(a, b) return (a.Position - root.Position).Magnitude < (b.Position - root.Position).Magnitude end)
 
         for _, poster in ipairs(posters) do
             root.CFrame = CFrame.new(poster.Position + Vector3.new(0, 3, 0))
@@ -312,17 +293,12 @@ Tabs.Main:AddButton({
                 local model = part.Parent
                 if model then
                     for _, child in ipairs(model:GetDescendants()) do
-                        if child:IsA("ProximityPrompt") then
-                            pcall(function() child.HoldDuration = 0.01 end)
-                        end
+                        if child:IsA("ProximityPrompt") then pcall(function() child.HoldDuration = 0.01 end) end
                     end
                 end
             end
 
-            local camScriptable = camera.CameraType == Enum.CameraType.Scriptable
-            if not camScriptable then
-                camera.CameraType = Enum.CameraType.Scriptable
-            end
+            if camera.CameraType ~= Enum.CameraType.Scriptable then camera.CameraType = Enum.CameraType.Scriptable end
             local lookTarget = poster.Position
             task.spawn(function()
                 while poster.Parent do
@@ -333,9 +309,7 @@ Tabs.Main:AddButton({
 
             Fluent:Notify({ Title = "请狂点屏幕", Content = "视角已锁定，撕完自动下一张", Duration = 2 })
 
-            repeat
-                task.wait(0.3)
-            until not poster.Parent or not poster:IsDescendantOf(workspace)
+            repeat task.wait(0.3) until not poster.Parent or not poster:IsDescendantOf(workspace)
         end
 
         camera.CameraType = Enum.CameraType.Custom
@@ -366,16 +340,9 @@ Tabs.Main:AddToggle("AutoEscape", {
                                         local hum = model:FindFirstChild("Humanoid")
                                         local hrp = model:FindFirstChild("HumanoidRootPart")
                                         if hum and hum.Health > 0 and hrp then
-                                            local dist = (hrp.Position - root.Position).Magnitude
-                                            if dist < 20 then
-                                                pcall(function()
-                                                    root.CFrame = CFrame.new(safeZonePosition)
-                                                end)
-                                                Fluent:Notify({
-                                                    Title = "⚠️ 自动逃生",
-                                                    Content = "怪物接近！已传送到安全区",
-                                                    Duration = 2
-                                                })
+                                            if (hrp.Position - root.Position).Magnitude < 20 then
+                                                pcall(function() root.CFrame = CFrame.new(safeZonePosition) end)
+                                                Fluent:Notify({ Title = "⚠️ 自动逃生", Content = "怪物接近！已传送到安全区", Duration = 2 })
                                                 break
                                             end
                                         end
@@ -387,6 +354,106 @@ Tabs.Main:AddToggle("AutoEscape", {
                     task.wait(0.3)
                 end
             end)
+        end
+    end
+})
+
+-- ==================== 自动降低焦虑（智能版） ====================
+local autoLowerAnxietyEnabled = false
+local monitorPrompt = nil
+local holdThread = nil
+local reduceThread = nil
+
+local function stopAnxietyControl()
+    if holdThread then task.cancel(holdThread) holdThread = nil end
+    if reduceThread then task.cancel(reduceThread) reduceThread = nil end
+    if monitorPrompt then
+        pcall(function()
+            monitorPrompt:InputHoldEnd()
+            task.wait(0.2)
+            ReplicatedStorage:WaitForChild("CloseCameras"):FireServer(player)
+            ReplicatedStorage:WaitForChild("InduceAnxiety"):FireServer(player)
+        end)
+        monitorPrompt = nil
+    end
+end
+
+Tabs.Main:AddToggle("AutoLowerAnxiety", {
+    Title = "自动降低焦虑",
+    Default = false,
+    Callback = function(state)
+        autoLowerAnxietyEnabled = state
+        if state then
+            task.spawn(function()
+                while autoLowerAnxietyEnabled do
+                    -- 获取焦虑值
+                    local anxietyValue = 0
+                    local playerGui = player:WaitForChild("PlayerGui")
+                    local flashlightGui = playerGui:FindFirstChild("FlashLightGui")
+                    if flashlightGui then
+                        local percentageLabel = flashlightGui:FindFirstChild("Percentage")
+                        if not percentageLabel then
+                            local frame = flashlightGui:FindFirstChild("Frame")
+                            if frame then
+                                percentageLabel = frame:FindFirstChild("Percentage")
+                            end
+                        end
+                        if percentageLabel and percentageLabel:IsA("TextLabel") then
+                            local text = percentageLabel.Text
+                            local num = tonumber(text:match("%d+"))
+                            if num then anxietyValue = num end
+                        end
+                    end
+
+                    -- 高于80% 执行降焦虑
+                    if anxietyValue >= 80 then
+                        local char = player.Character
+                        if char and char:FindFirstChild("HumanoidRootPart") then
+                            -- 传送到出生点
+                            if not monitorPrompt then
+                                char.HumanoidRootPart.CFrame = CFrame.new(spawnPosition)
+                                task.wait(1)
+                                -- 找到监控的ProximityPrompt
+                                for _, part in ipairs(workspace:GetPartBoundsInRadius(spawnPosition, 10)) do
+                                    local model = part.Parent
+                                    if model then
+                                        local prompt = model:FindFirstChildWhichIsA("ProximityPrompt")
+                                        if prompt then
+                                            monitorPrompt = prompt
+                                            break
+                                        end
+                                    end
+                                end
+                                if monitorPrompt then
+                                    -- 模拟长按开始
+                                    pcall(function() monitorPrompt.HoldDuration = 0 end)
+                                    pcall(function() monitorPrompt:InputHoldBegin() end)
+                                    -- 定期发送ReduceAnxiety辅助
+                                    reduceThread = task.spawn(function()
+                                        while autoLowerAnxietyEnabled and monitorPrompt do
+                                            pcall(function()
+                                                ReplicatedStorage:WaitForChild("ReduceAnxiety"):FireServer(player)
+                                            end)
+                                            task.wait(1)
+                                        end
+                                    end)
+                                end
+                            end
+                        end
+                    else
+                        -- 焦虑值低于80%，结束监控
+                        if monitorPrompt then
+                            stopAnxietyControl()
+                        end
+                    end
+                    task.wait(2)
+                end
+                -- 循环结束时清理
+                stopAnxietyControl()
+            end)
+        else
+            autoLowerAnxietyEnabled = false
+            stopAnxietyControl()
         end
     end
 })
