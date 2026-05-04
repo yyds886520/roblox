@@ -3,7 +3,7 @@ local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/d
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "哥斯拉皮套Hub - 第一章",
+    Title = "皮套出生Hub - 第一章",
     SubTitle = "by.小梦",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 360),
@@ -15,6 +15,7 @@ local Window = Fluent:CreateWindow({
 Window.Root.Visible = true
 
 local Tabs = {
+    Main = Window:AddTab({ Title = "主要", Icon = "box" }),
     ESP = Window:AddTab({ Title = "透视", Icon = "eye" }),
     Teleport = Window:AddTab({ Title = "传送", Icon = "map-pin" }),
     Other = Window:AddTab({ Title = "其他", Icon = "settings" })
@@ -90,9 +91,11 @@ end
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
+local uis = game:GetService("UserInputService")
 
-local espEnabled = false
-local billboards = {}
+-- ==================== 怪物透视（高亮轮廓） ====================
+local monsterEspEnabled = false
+local monsterHighlights = {}
 local screenDistanceLabel
 
 local function createScreenGui()
@@ -131,42 +134,27 @@ local function updateScreenDistance(dist)
     end
 end
 
-local function createBillboard(model)
-    if billboards[model] then return end
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "GodzillaESP"
-    billboard.Adornee = model:FindFirstChild("Head") or model:FindFirstChild("HumanoidRootPart")
-    billboard.Size = UDim2.new(0, 200, 0, 60)
-    billboard.StudsOffset = Vector3.new(0, 3, 0)
-    billboard.AlwaysOnTop = true
-    billboard.MaxDistance = 500
-    billboard.Parent = model
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.fromScale(1, 1)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 80, 80)
-    label.TextStrokeTransparency = 0
-    label.Font = Enum.Font.SourceSansBold
-    label.TextSize = 14
-    label.Parent = billboard
-    billboards[model] = billboard
+local function createMonsterHighlight(model)
+    if monsterHighlights[model] then return end
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "MonsterOutline"
+    highlight.FillTransparency = 1
+    highlight.OutlineTransparency = 0
+    highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+    highlight.Parent = model
+    monsterHighlights[model] = highlight
 end
 
-local function removeBillboard(model)
-    if billboards[model] then
-        billboards[model]:Destroy()
-        billboards[model] = nil
-    end
-    for _, obj in ipairs(model:GetChildren()) do
-        if obj.Name == "GodzillaESP" and obj:IsA("BillboardGui") then
-            obj:Destroy()
-        end
+local function removeMonsterHighlight(model)
+    if monsterHighlights[model] then
+        monsterHighlights[model]:Destroy()
+        monsterHighlights[model] = nil
     end
 end
 
-local function updateESP()
+local function updateMonsterESP()
     task.spawn(function()
-        while espEnabled do
+        while monsterEspEnabled do
             local char = player.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             local kitFolder = workspace:FindFirstChild("kit")
@@ -184,16 +172,8 @@ local function updateESP()
                                     closestDist = dist
                                 end
                             end
-                            if not billboards[model] then
-                                createBillboard(model)
-                            end
-                            local b = billboards[model]
-                            if b then
-                                local label = b:FindFirstChildWhichIsA("TextLabel")
-                                if label and root then
-                                    local dist = (hrp.Position - root.Position).Magnitude
-                                    label.Text = "哥斯拉\n[" .. string.format("%.1f", dist) .. "米]"
-                                end
+                            if not monsterHighlights[model] then
+                                createMonsterHighlight(model)
                             end
                         end
                     end
@@ -202,9 +182,10 @@ local function updateESP()
 
             updateScreenDistance(closestDist)
 
-            for model, _ in pairs(billboards) do
-                if not model:FindFirstChild("Humanoid") or model.Humanoid.Health <= 0 or not model:FindFirstChild("HumanoidRootPart") then
-                    removeBillboard(model)
+            for model, _ in pairs(monsterHighlights) do
+                local hum = model:FindFirstChild("Humanoid")
+                if not hum or hum.Health <= 0 or not model:FindFirstChild("HumanoidRootPart") or not model.Parent then
+                    removeMonsterHighlight(model)
                 end
             end
 
@@ -213,28 +194,29 @@ local function updateESP()
     end)
 end
 
-local function clearESP()
-    for model, _ in pairs(billboards) do
-        removeBillboard(model)
+local function clearMonsterESP()
+    for model, _ in pairs(monsterHighlights) do
+        removeMonsterHighlight(model)
     end
-    billboards = {}
+    monsterHighlights = {}
     destroyScreenGui()
 end
 
-Tabs.ESP:AddToggle("EnableESP", {
+Tabs.ESP:AddToggle("EnableMonsterESP", {
     Title = "透视怪物",
     Default = false,
     Callback = function(state)
-        espEnabled = state
+        monsterEspEnabled = state
         if state then
             createScreenGui()
-            updateESP()
+            updateMonsterESP()
         else
-            clearESP()
+            clearMonsterESP()
         end
     end
 })
 
+-- ==================== 传送点 ====================
 local safeZonePosition = Vector3.new(-171.49, -451.59, -153.56)
 local generatorRoomPosition = Vector3.new(-12.83, -9.90, -143.77)
 local spawnPosition = Vector3.new(-6.98, -9.84, -0.95)
@@ -280,6 +262,131 @@ Tabs.Teleport:AddButton({
             Fluent:Notify({ Title = "传送", Content = "已传送到出生点(看监控)", Duration = 2 })
         else
             Fluent:Notify({ Title = "传送失败", Content = "角色未加载", Duration = 2 })
+        end
+    end
+})
+
+-- ==================== 半自动收集报纸 ====================
+Tabs.Main:AddButton({
+    Title = "半自动收集报纸",
+    Callback = function()
+        local char = player.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then
+            Fluent:Notify({ Title = "收集失败", Content = "角色未加载", Duration = 2 })
+            return
+        end
+        local root = char.HumanoidRootPart
+        local camera = workspace.CurrentCamera
+
+        local postersFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Posters")
+        if not postersFolder then
+            Fluent:Notify({ Title = "收集失败", Content = "未找到 Posters 文件夹", Duration = 2 })
+            return
+        end
+
+        local function scanPosters()
+            local list = {}
+            for _, part in ipairs(postersFolder:GetDescendants()) do
+                if part:IsA("BasePart") and part.Name == "Poster" then
+                    table.insert(list, part)
+                end
+            end
+            return list
+        end
+
+        local posters = scanPosters()
+        if #posters == 0 then
+            Fluent:Notify({ Title = "收集完成", Content = "当前没有报纸", Duration = 2 })
+            return
+        end
+
+        table.sort(posters, function(a, b)
+            return (a.Position - root.Position).Magnitude < (b.Position - root.Position).Magnitude
+        end)
+
+        for _, poster in ipairs(posters) do
+            root.CFrame = CFrame.new(poster.Position + Vector3.new(0, 3, 0))
+            task.wait(0.8)
+
+            for _, part in ipairs(workspace:GetPartBoundsInRadius(poster.Position, 15)) do
+                local model = part.Parent
+                if model then
+                    for _, child in ipairs(model:GetDescendants()) do
+                        if child:IsA("ProximityPrompt") then
+                            pcall(function() child.HoldDuration = 0.01 end)
+                        end
+                    end
+                end
+            end
+
+            local camScriptable = camera.CameraType == Enum.CameraType.Scriptable
+            if not camScriptable then
+                camera.CameraType = Enum.CameraType.Scriptable
+            end
+            local lookTarget = poster.Position
+            task.spawn(function()
+                while poster.Parent do
+                    camera.CFrame = CFrame.new(root.Position + Vector3.new(0, 1.5, 0), lookTarget)
+                    task.wait()
+                end
+            end)
+
+            Fluent:Notify({ Title = "请狂点屏幕", Content = "视角已锁定，撕完自动下一张", Duration = 2 })
+
+            repeat
+                task.wait(0.3)
+            until not poster.Parent or not poster:IsDescendantOf(workspace)
+        end
+
+        camera.CameraType = Enum.CameraType.Custom
+        root.CFrame = CFrame.new(spawnPosition)
+        Fluent:Notify({ Title = "收集完成", Content = "全部报纸已处理，回到出生点", Duration = 3 })
+    end
+})
+
+-- ==================== 自动逃生 ====================
+local autoEscapeEnabled = false
+
+Tabs.Main:AddToggle("AutoEscape", {
+    Title = "自动逃生",
+    Default = false,
+    Callback = function(state)
+        autoEscapeEnabled = state
+        if state then
+            task.spawn(function()
+                while autoEscapeEnabled do
+                    local char = player.Character
+                    if char then
+                        local root = char:FindFirstChild("HumanoidRootPart")
+                        if root then
+                            local kitFolder = workspace:FindFirstChild("kit")
+                            if kitFolder then
+                                for _, model in ipairs(kitFolder:GetChildren()) do
+                                    if model:IsA("Model") and model.Name:lower() == "ai" then
+                                        local hum = model:FindFirstChild("Humanoid")
+                                        local hrp = model:FindFirstChild("HumanoidRootPart")
+                                        if hum and hum.Health > 0 and hrp then
+                                            local dist = (hrp.Position - root.Position).Magnitude
+                                            if dist < 20 then
+                                                pcall(function()
+                                                    root.CFrame = CFrame.new(safeZonePosition)
+                                                end)
+                                                Fluent:Notify({
+                                                    Title = "⚠️ 自动逃生",
+                                                    Content = "怪物接近！已传送到安全区",
+                                                    Duration = 2
+                                                })
+                                                break
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    task.wait(0.3)
+                end
+            end)
         end
     end
 })
