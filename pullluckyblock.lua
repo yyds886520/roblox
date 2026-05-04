@@ -115,14 +115,14 @@ local function ShowAnnouncement(callback)
 更新时间：]] .. os.date("%Y-%m-%d %H:%M:%S") .. [[
 
 【本次更新内容】
-• 新增：秒拉取功能（点击按钮生效）
-• 移除：范围功能（兼容性问题）
-• 优化：启动自动清理更全面
-• 调整：公告尺寸优化
+• 新增：范围攻击（可调节大小、透明度、颜色）
+• 优化：公告文字更通俗易懂
+• 调整：移除部分冗余功能，提升稳定性
 
 【现有功能】
-自动：哑铃、购买哑铃、重生、升级房屋、升级拉动
-功能：秒拉取、世界传送、移除VIP门、移除墙壁、自动清理付费元素
+自动：自动锻炼、自动购买哑铃、自动重生、自动升级房屋、自动升级拉动
+范围：自定义受击范围，一键开启
+工具：世界传送、移除VIP门、移除墙壁、自动清理付费弹窗
 
 感谢使用！]]
     content.TextColor3 = Color3.fromRGB(220, 220, 220)
@@ -192,9 +192,9 @@ local Window = Fluent:CreateWindow({
 Window.Root.Visible = false
 
 local Tabs = {
-    Info = Window:AddTab({ Title = "信息", Icon = "info" }),
     Main = Window:AddTab({ Title = "主要", Icon = "box" }),
     Auto = Window:AddTab({ Title = "自动", Icon = "bot" }),
+    Range = Window:AddTab({ Title = "范围", Icon = "crosshair" }),
     Teleport = Window:AddTab({ Title = "世界传送", Icon = "map-pin" }),
     Other = Window:AddTab({ Title = "其他", Icon = "settings" })
 }
@@ -275,203 +275,118 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
-Tabs.Info:AddParagraph({ Title = "您的用户昵称", Content = " " .. player.DisplayName })
-Tabs.Info:AddParagraph({ Title = "您的用户名", Content = " " .. player.Name })
-Tabs.Info:AddParagraph({ Title = "您的用户ID", Content = " " .. player.UserId })
-
-local clientId = "未知"
-pcall(function()
-    if getclientid then clientId = getclientid()
-    else clientId = game:GetService("RbxAnalyticsService"):GetClientId() end
-end)
-Tabs.Info:AddParagraph({ Title = "您的客户端ID", Content = " " .. clientId })
-
-local region = "未知"
-pcall(function()
-    if getregion then region = getregion()
-    else
-        local success, result = pcall(function() return game:HttpGet("http://ip-api.com/json/") end)
-        if success and result then
-            local data = game:GetService("HttpService"):JSONDecode(result)
-            if data and data.countryCode then region = data.countryCode end
-        end
-    end
-end)
-if region == "未知" then
-    pcall(function() region = game:GetService("LocalizationService").RobloxLocaleId or "未知" end)
-end
-Tabs.Info:AddParagraph({ Title = "您的地区", Content = " " .. region })
-
-local language = "未知"
-pcall(function() language = player.LocaleId or "未知" end)
-Tabs.Info:AddParagraph({ Title = "您的语言", Content = " " .. language })
-
-local accountAge = 0
-pcall(function() accountAge = player.AccountAge end)
-Tabs.Info:AddParagraph({ Title = "您的账户年龄(天)", Content = " " .. accountAge })
-Tabs.Info:AddParagraph({ Title = "您的账户年龄(年)", Content = " " .. string.format("%.1f", accountAge / 365) })
-
-local executorName = "未知"
-pcall(function() executorName = identifyexecutor() or "未知" end)
-Tabs.Info:AddParagraph({ Title = "您使用的注入器", Content = " " .. executorName })
-
-Tabs.Info:AddParagraph({ Title = "您当前服务器的ID", Content = " " .. game.GameId })
-Tabs.Info:AddParagraph({ Title = "您当前的服务器位置ID", Content = " " .. (game.PlaceId or game.GameId) })
-Tabs.Info:AddParagraph({ Title = "当前服务器总人数", Content = " " .. #Players:GetPlayers() })
-
-local pingParagraph = Tabs.Info:AddParagraph({ Title = "您的Ping", Content = " 加载中..." })
-local fpsParagraph = Tabs.Info:AddParagraph({ Title = "您的FPS", Content = " 加载中..." })
-local timeParagraph = Tabs.Info:AddParagraph({ Title = "时间", Content = " 加载中..." })
-
-task.spawn(function()
-    while true do
-        local pingValue = "N/A"
-        pcall(function()
-            local s, p = pcall(function() return player:GetNetworkPing() end)
-            if s and p then pingValue = math.floor(p * 1000) .. " ms"
-            else
-                s, p = pcall(function() return game:GetService("Stats").PerformanceStats.NetworkPing end)
-                if s and p then pingValue = math.floor(p) .. " ms"
-                else
-                    s, p = pcall(function() return game:GetService("NetworkClient"):GetNetworkPing() end)
-                    if s and p then pingValue = math.floor(p * 1000) .. " ms" end
-                end
+-- ==================== 秒拉取 ====================
+Tabs.Main:AddSection("功能")
+Tabs.Main:AddButton({
+    Title = "秒拉取",
+    Callback = function()
+        for _, prompt in ipairs(workspace:GetDescendants()) do
+            if prompt:IsA("ProximityPrompt") then
+                pcall(function()
+                    prompt.HoldDuration = 0.01
+                end)
             end
-        end)
-        local fpsValue = "N/A"
-        pcall(function() fpsValue = math.floor(1 / RunService.Heartbeat:Wait()) .. " FPS" end)
-        local timeString = os.date("%H:%M:%S")
-        pcall(function()
-            pingParagraph:SetDesc(" " .. pingValue)
-            fpsParagraph:SetDesc(" " .. fpsValue)
-            timeParagraph:SetDesc(" " .. timeString)
-        end)
-        task.wait(0.5)
-    end
-end)
-
-local HEAD_PART_NAME = "Head"
-local authorESPEnabled = false
-local authorTags = {}
-local authorNotificationGui
-
-local function createAuthorTag(character, playerName)
-    if authorTags[character] then return end
-    local head = character:WaitForChild(HEAD_PART_NAME, 10)
-    if not head then return end
-
-    local billboard = Instance.new("BillboardGui")
-    billboard.Adornee = head
-    billboard.Size = UDim2.new(0, 200, 0, 50)
-    billboard.StudsOffset = Vector3.new(0, 3, 0)
-    billboard.AlwaysOnTop = true
-    billboard.MaxDistance = 300
-    billboard.Name = "AuthorTag"
-
-    local background = Instance.new("Frame")
-    background.Size = UDim2.new(0, 80, 0, 26)
-    background.AnchorPoint = Vector2.new(0.5, 0.5)
-    background.Position = UDim2.new(0.5, 0, 0.5, 0)
-    background.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-    background.BorderSizePixel = 0
-    background.Parent = billboard
-    Instance.new("UICorner", background).CornerRadius = UDim.new(0, 6)
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Thickness = 2
-    stroke.Color = Color3.fromRGB(255, 0, 0)
-    stroke.Parent = background
-
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.fromScale(1, 1)
-    textLabel.BackgroundTransparency = 1
-    textLabel.Text = "小梦"
-    textLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-    textLabel.TextStrokeTransparency = 0
-    textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    textLabel.Font = Enum.Font.SourceSansBold
-    textLabel.TextSize = 18
-    textLabel.Parent = background
-
-    billboard.Parent = game:GetService("CoreGui")
-    authorTags[character] = { billboard = billboard, stroke = stroke, textLabel = textLabel }
-
-    local hue = 0
-    task.spawn(function()
-        while authorTags[character] do
-            hue = (hue + 0.02) % 1
-            local color = Color3.fromHSV(hue, 1, 1)
-            pcall(function()
-                textLabel.TextColor3 = color
-                stroke.Color = Color3.fromHSV((hue + 0.5) % 1, 1, 1)
-            end)
-            task.wait(0.05)
         end
-    end)
-end
-
-local function removeAuthorTag(character)
-    local tag = authorTags[character]
-    if tag then tag.billboard:Destroy(); authorTags[character] = nil end
-end
-
-local function showAuthorNotification()
-    if authorNotificationGui then authorNotificationGui:Destroy() end
-    local gui = Instance.new("ScreenGui"); gui.Name = "AuthorNotification"
-    gui.ResetOnSpawn = false; gui.Parent = game:GetService("CoreGui")
-    authorNotificationGui = gui
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 280, 0, 60)
-    frame.Position = UDim2.new(1, -290, 1, -80)
-    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    frame.BackgroundTransparency = 0.2; frame.BorderSizePixel = 0; frame.Parent = gui
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
-    local stroke = Instance.new("UIStroke"); stroke.Thickness = 1
-    stroke.Color = Color3.fromRGB(255, 215, 0); stroke.Parent = frame
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.fromScale(1, 1); textLabel.BackgroundTransparency = 1
-    textLabel.Text = "检测到作者进入游戏"
-    textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    textLabel.Font = Enum.Font.SourceSansBold; textLabel.TextSize = 16; textLabel.Parent = frame
-    task.delay(5, function()
-        if authorNotificationGui == gui then gui:Destroy(); authorNotificationGui = nil end
-    end)
-end
-
-local function isAuthor(p) for _, id in ipairs(AUTHOR_IDS) do if p.UserId == id then return true end end return false end
-
-local function onAuthorAdded(p)
-    if not authorESPEnabled or p == player then return end
-    if isAuthor(p) then
-        showAuthorNotification()
-        if p.Character then createAuthorTag(p.Character, p.Name) end
-        p.CharacterAdded:Connect(function(char) createAuthorTag(char, p.Name) end)
-    end
-end
-
-Players.PlayerAdded:Connect(onAuthorAdded)
-Players.PlayerRemoving:Connect(function(p) if authorTags[p.Character] then removeAuthorTag(p.Character) end end)
-
-local function startAuthorESP()
-    authorESPEnabled = true
-    for _, p in ipairs(Players:GetPlayers()) do onAuthorAdded(p) end
-end
-
-local function stopAuthorESP()
-    authorESPEnabled = false
-    for c, _ in pairs(authorTags) do removeAuthorTag(c) end
-end
-
-Tabs.Info:AddToggle("AuthorESP", {
-    Title = "作者头街",
-    Default = true,
-    Callback = function(state)
-        if state then startAuthorESP() else stopAuthorESP() end
+        Fluent:Notify({ Title = "秒拉取", Content = "已将所有互动时间设为0.01秒", Duration = 2 })
     end
 })
 
-task.spawn(startAuthorESP)
+-- ==================== 范围攻击 ====================
+local rangeEnabled = false
+local rangeSize = 50
+local rangeTransparency = 0.9
+local teamCheck = false
+local rangeColor = "Really blue"
 
+local function applyRange()
+    for _, targetPlayer in ipairs(Players:GetPlayers()) do
+        if targetPlayer == player then continue end
+        if teamCheck and targetPlayer.Team == player.Team then continue end
+        local char = targetPlayer.Character
+        if not char then continue end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
+
+        local size = rangeEnabled and rangeSize or 2
+        local transparency = rangeEnabled and rangeTransparency or 1
+        local material = rangeEnabled and Enum.Material.Neon or Enum.Material.Plastic
+        local color = rangeEnabled and BrickColor.new(rangeColor) or BrickColor.new("Really blue")
+
+        pcall(function()
+            hrp.Size = Vector3.new(size, size, size)
+            hrp.Transparency = transparency
+            hrp.Material = material
+            hrp.BrickColor = color
+            hrp.CanCollide = false
+        end)
+    end
+end
+
+RunService.RenderStepped:Connect(applyRange)
+
+Tabs.Range:AddSection("范围攻击")
+
+Tabs.Range:AddToggle("RangeEnabled", {
+    Title = "开启范围",
+    Default = false,
+    Callback = function(state)
+        rangeEnabled = state
+    end
+})
+
+local sizeParagraph = Tabs.Range:AddParagraph({ Title = "当前范围大小", Content = "50" })
+Tabs.Range:AddButton({ Title = "增加范围 (+5)", Callback = function()
+    rangeSize = rangeSize + 5
+    sizeParagraph:SetDesc(tostring(rangeSize))
+end })
+Tabs.Range:AddButton({ Title = "减少范围 (-5)", Callback = function()
+    rangeSize = math.max(5, rangeSize - 5)
+    sizeParagraph:SetDesc(tostring(rangeSize))
+end })
+
+local transParagraph = Tabs.Range:AddParagraph({ Title = "当前透明度", Content = "0.9" })
+Tabs.Range:AddButton({ Title = "增加透明度 (+0.1)", Callback = function()
+    rangeTransparency = math.min(1, rangeTransparency + 0.1)
+    transParagraph:SetDesc(string.format("%.1f", rangeTransparency))
+end })
+Tabs.Range:AddButton({ Title = "减少透明度 (-0.1)", Callback = function()
+    rangeTransparency = math.max(0, rangeTransparency - 0.1)
+    transParagraph:SetDesc(string.format("%.1f", rangeTransparency))
+end })
+
+Tabs.Range:AddToggle("RangeTeamCheck", {
+    Title = "队伍检测",
+    Default = false,
+    Callback = function(state)
+        teamCheck = state
+    end
+})
+
+local colorMap = {
+    ["蓝色"] = "Really blue",
+    ["红色"] = "Really red",
+    ["绿色"] = "Really green",
+    ["黄色"] = "Really yellow",
+    ["粉色"] = "Really pink",
+    ["橙色"] = "Really orange",
+    ["紫色"] = "Really purple",
+    ["浅灰"] = "Really light gray"
+}
+local colorNames = {}
+for name, _ in pairs(colorMap) do
+    table.insert(colorNames, name)
+end
+
+Tabs.Range:AddDropdown("RangeColor", {
+    Title = "范围颜色",
+    Values = colorNames,
+    Default = "蓝色",
+    Callback = function(selected)
+        rangeColor = colorMap[selected]
+    end
+})
+
+-- ==================== 自动功能 ====================
 local Remotes = game:GetService("ReplicatedStorage").SharedModules.Network.Remotes
 local DumbellRemote = Remotes:FindFirstChild("Activate Dumbell")
 local BuyDumbellRemote = Remotes:FindFirstChild("Buy Dumbell")
@@ -568,6 +483,17 @@ local function stopAutoUpgradeCarry()
     if upgradeCarryConnection then upgradeCarryConnection:Disconnect() upgradeCarryConnection = nil end
 end
 
+Tabs.Auto:AddSection("自动锻炼")
+Tabs.Auto:AddToggle("AutoDumbell", { Title = "自动哑铃", Default = false, Callback = function(state) autoDumbellEnabled = state; if state then startAutoDumbell() else stopAutoDumbell() end end })
+Tabs.Auto:AddSection("自动购买")
+Tabs.Auto:AddToggle("AutoBuyDumbell", { Title = "自动购买哑铃", Default = false, Callback = function(state) autoBuyDumbellEnabled = state; if state then startAutoBuyDumbell() end end })
+Tabs.Auto:AddSection("自动重生")
+Tabs.Auto:AddToggle("AutoRebirth", { Title = "自动重生", Default = false, Callback = function(state) autoRebirthEnabled = state; if state then startAutoRebirth() else stopAutoRebirth() end end })
+Tabs.Auto:AddSection("自动升级")
+Tabs.Auto:AddToggle("AutoUpgradeFloor", { Title = "自动升级房屋", Default = false, Callback = function(state) autoUpgradeFloorEnabled = state; if state then startAutoUpgradeFloor() else stopAutoUpgradeFloor() end end })
+Tabs.Auto:AddToggle("AutoUpgradeCarry", { Title = "自动升级拉动", Default = false, Callback = function(state) autoUpgradeCarryEnabled = state; if state then startAutoUpgradeCarry() else stopAutoUpgradeCarry() end end })
+
+-- ==================== 工具 ====================
 local function removeVIPDoors()
     local removedCount = 0
     for _, obj in ipairs(workspace:GetDescendants()) do
@@ -584,46 +510,31 @@ local function removeWalls()
         Fluent:Notify({ Title = "错误", Content = "未找到 MAPPARTS 文件夹", Duration = 3 })
         return
     end
-    local targetColor = Color3.fromRGB(173, 90, 44)
+    local targetColors = {
+        Color3.fromRGB(173, 90, 44),
+        Color3.fromRGB(255, 170, 60)
+    }
+    local function isTargetColor(c)
+        for _, tc in ipairs(targetColors) do
+            if c == tc then return true end
+        end
+        return false
+    end
     local removedCount = 0
     for _, part in ipairs(mapPartsFolder:GetDescendants()) do
-        if part:IsA("BasePart") and part.Name == "Part" and part.Color == targetColor then
+        if part:IsA("BasePart") and part.Name == "Part" and isTargetColor(part.Color) then
             pcall(function() part:Destroy() removedCount = removedCount + 1 end)
         end
     end
     Fluent:Notify({ Title = "移除墙壁", Content = "已移除 " .. removedCount .. " 个墙壁", Duration = 3 })
 end
 
-Tabs.Main:AddSection("功能")
-Tabs.Main:AddButton({
-    Title = "秒拉取",
-    Callback = function()
-        for _, prompt in ipairs(workspace:GetDescendants()) do
-            if prompt:IsA("ProximityPrompt") then
-                pcall(function()
-                    prompt.HoldDuration = 0.01
-                end)
-            end
-        end
-        Fluent:Notify({ Title = "秒拉取", Content = "已将所有互动时间设为0.01秒", Duration = 2 })
-    end
-})
-
-Tabs.Auto:AddSection("自动锻炼")
-Tabs.Auto:AddToggle("AutoDumbell", { Title = "自动哑铃", Default = false, Callback = function(state) autoDumbellEnabled = state; if state then startAutoDumbell() else stopAutoDumbell() end end })
-Tabs.Auto:AddSection("自动购买")
-Tabs.Auto:AddToggle("AutoBuyDumbell", { Title = "自动购买哑铃", Default = false, Callback = function(state) autoBuyDumbellEnabled = state; if state then startAutoBuyDumbell() end end })
-Tabs.Auto:AddSection("自动重生")
-Tabs.Auto:AddToggle("AutoRebirth", { Title = "自动重生", Default = false, Callback = function(state) autoRebirthEnabled = state; if state then startAutoRebirth() else stopAutoRebirth() end end })
-Tabs.Auto:AddSection("自动升级")
-Tabs.Auto:AddToggle("AutoUpgradeFloor", { Title = "自动升级房屋", Default = false, Callback = function(state) autoUpgradeFloorEnabled = state; if state then startAutoUpgradeFloor() else stopAutoUpgradeFloor() end end })
-Tabs.Auto:AddToggle("AutoUpgradeCarry", { Title = "自动升级拉动", Default = false, Callback = function(state) autoUpgradeCarryEnabled = state; if state then startAutoUpgradeCarry() else stopAutoUpgradeCarry() end end })
-
 Tabs.Main:AddSection("VIP工具")
 Tabs.Main:AddButton({ Title = "移除VIP门", Callback = removeVIPDoors })
 Tabs.Main:AddSection("地图控制")
 Tabs.Main:AddButton({ Title = "移除墙壁", Callback = removeWalls })
 
+-- ==================== 世界传送 ====================
 Tabs.Teleport:AddSection("世界传送")
 
 Tabs.Teleport:AddButton({
