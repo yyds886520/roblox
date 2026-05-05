@@ -386,7 +386,6 @@ Tabs.Main:AddToggle("AutoLowerAnxiety", {
         if state then
             task.spawn(function()
                 while autoLowerAnxietyEnabled do
-                    -- 获取焦虑值
                     local anxietyValue = 0
                     local playerGui = player:WaitForChild("PlayerGui")
                     local flashlightGui = playerGui:FindFirstChild("FlashLightGui")
@@ -405,15 +404,12 @@ Tabs.Main:AddToggle("AutoLowerAnxiety", {
                         end
                     end
 
-                    -- 高于80% 执行降焦虑
                     if anxietyValue >= 80 then
                         local char = player.Character
                         if char and char:FindFirstChild("HumanoidRootPart") then
-                            -- 传送到出生点
                             if not monitorPrompt then
                                 char.HumanoidRootPart.CFrame = CFrame.new(spawnPosition)
                                 task.wait(1)
-                                -- 找到监控的ProximityPrompt
                                 for _, part in ipairs(workspace:GetPartBoundsInRadius(spawnPosition, 10)) do
                                     local model = part.Parent
                                     if model then
@@ -425,10 +421,8 @@ Tabs.Main:AddToggle("AutoLowerAnxiety", {
                                     end
                                 end
                                 if monitorPrompt then
-                                    -- 模拟长按开始
                                     pcall(function() monitorPrompt.HoldDuration = 0 end)
                                     pcall(function() monitorPrompt:InputHoldBegin() end)
-                                    -- 定期发送ReduceAnxiety辅助
                                     reduceThread = task.spawn(function()
                                         while autoLowerAnxietyEnabled and monitorPrompt do
                                             pcall(function()
@@ -441,19 +435,148 @@ Tabs.Main:AddToggle("AutoLowerAnxiety", {
                             end
                         end
                     else
-                        -- 焦虑值低于80%，结束监控
                         if monitorPrompt then
                             stopAnxietyControl()
                         end
                     end
                     task.wait(2)
                 end
-                -- 循环结束时清理
                 stopAnxietyControl()
             end)
         else
             autoLowerAnxietyEnabled = false
             stopAnxietyControl()
+        end
+    end
+})
+
+-- ==================== 远程修电 ====================
+local repairActive = false
+
+local function findGeneratorPrompt()
+    local generator = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Generator")
+    if not generator then return nil end
+    for _, obj in ipairs(generator:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") then
+            return obj
+        end
+    end
+    return nil
+end
+
+local function getProgress()
+    local batteryLabel = workspace:FindFirstChild("Map")
+        and workspace.Map:FindFirstChild("Generator")
+        and workspace.Map.Generator:FindFirstChild("Inside")
+        and workspace.Map.Generator.Inside:FindFirstChild("SurfaceGui")
+        and workspace.Map.Generator.Inside.SurfaceGui:FindFirstChild("BatteryLabel")
+    if batteryLabel and batteryLabel:IsA("TextLabel") then
+        local num = tonumber(batteryLabel.Text:match("%d+"))
+        return num
+    end
+    return 0
+end
+
+local function startRepairLoop()
+    task.spawn(function()
+        local prompt = findGeneratorPrompt()
+        if not prompt then
+            Fluent:Notify({ Title = "错误", Content = "未找到发电机按钮", Duration = 3 })
+            repairActive = false
+            return
+        end
+
+        prompt.MaxActivationDistance = 500
+        pcall(function() prompt:InputHoldBegin() end)
+
+        while repairActive do
+            local progress = getProgress()
+            if progress >= 100 then
+                pcall(function() prompt:InputHoldEnd() end)
+                Fluent:Notify({ Title = "修电完成", Content = "发电机已修好", Duration = 3 })
+                repairActive = false
+                break
+            end
+            task.wait(0.3)
+        end
+    end)
+end
+
+Tabs.Main:AddToggle("AutoRepair", {
+    Title = "远程修电",
+    Default = false,
+    Callback = function(state)
+        repairActive = state
+        if state then
+            startRepairLoop()
+        else
+            local prompt = findGeneratorPrompt()
+            if prompt then
+                pcall(function() prompt:InputHoldEnd() end)
+            end
+        end
+    end
+})
+
+-- ==================== 显示电量 ====================
+local batteryDisplayGui = nil
+local batteryLabelGlobal = nil
+
+local function updateBatteryDisplay()
+    local percent = getProgress()
+    if batteryLabelGlobal then
+        batteryLabelGlobal.Text = "电量: " .. tostring(percent) .. "%"
+    end
+end
+
+local function createBatteryDisplay()
+    if batteryDisplayGui then return end
+    batteryDisplayGui = Instance.new("ScreenGui")
+    batteryDisplayGui.Name = "BatteryDisplay"
+    batteryDisplayGui.ResetOnSpawn = false
+    batteryDisplayGui.Parent = game:GetService("CoreGui")
+
+    batteryLabelGlobal = Instance.new("TextLabel")
+    batteryLabelGlobal.Size = UDim2.fromOffset(120, 24)
+    batteryLabelGlobal.Position = UDim2.new(0.02, 0, 0.94, 0)
+    batteryLabelGlobal.BackgroundTransparency = 1
+    batteryLabelGlobal.TextColor3 = Color3.fromRGB(0, 255, 100)
+    batteryLabelGlobal.TextStrokeTransparency = 0.5
+    batteryLabelGlobal.Font = Enum.Font.SourceSansBold
+    batteryLabelGlobal.TextSize = 14
+    batteryLabelGlobal.Text = "电量: --%"
+    batteryLabelGlobal.Parent = batteryDisplayGui
+end
+
+local function destroyBatteryDisplay()
+    if batteryDisplayGui then
+        batteryDisplayGui:Destroy()
+        batteryDisplayGui = nil
+        batteryLabelGlobal = nil
+    end
+end
+
+local batteryDisplayEnabled = false
+local batteryUpdateConnection = nil
+
+Tabs.Main:AddToggle("ShowBattery", {
+    Title = "显示电量",
+    Default = false,
+    Callback = function(state)
+        batteryDisplayEnabled = state
+        if state then
+            createBatteryDisplay()
+            batteryUpdateConnection = RunService.Heartbeat:Connect(function()
+                if batteryDisplayEnabled then
+                    updateBatteryDisplay()
+                end
+            end)
+        else
+            if batteryUpdateConnection then
+                batteryUpdateConnection:Disconnect()
+                batteryUpdateConnection = nil
+            end
+            destroyBatteryDisplay()
         end
     end
 })
