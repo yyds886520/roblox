@@ -105,7 +105,8 @@ local screenDistanceLabel
 local monsterNames = {
     ["ai"] = "哥斯拉",
     ["ai_anguirus"] = "安吉拉斯",
-    ["ai_anguirus2"] = "安吉拉斯2"
+    ["ai_anguirus2"] = "安吉拉斯2",
+    ["ai_cybot"] = "机械哥斯拉"
 }
 
 local function getMonsterDisplayName(actualName)
@@ -184,7 +185,7 @@ local function updateMonsterESP()
                 for _, model in ipairs(kitFolder:GetChildren()) do
                     if model:IsA("Model") then
                         local lowerName = model.Name:lower()
-                        if lowerName == "ai" or lowerName == "ai_anguirus" or lowerName == "ai_anguirus2" then
+                        if monsterNames[lowerName] then
                             local hum = model:FindFirstChild("Humanoid")
                             local hrp = model:FindFirstChild("HumanoidRootPart")
                             if hum and hum.Health > 0 and hrp then
@@ -289,7 +290,7 @@ local function clearKeyESP()
     keyBillboards = {}
 end
 
--- ==================== 透视哥斯拉零件 ====================
+-- ==================== 透视哥斯拉零件（修正版）====================
 local partsEspEnabled = false
 local partsBillboards = {}
 local partPaths = {
@@ -318,38 +319,40 @@ local function updatePartsESP()
                 end
                 if valid and container:IsA("BasePart") then
                     local part = container
-                    if not partsBillboards[part] then
-                        local billboard = Instance.new("BillboardGui")
-                        billboard.Name = "PartESP"
-                        billboard.Adornee = part
-                        billboard.Size = UDim2.new(0, 200, 0, 40)
-                        billboard.StudsOffset = Vector3.new(0, 2, 0)
-                        billboard.AlwaysOnTop = true
-                        billboard.MaxDistance = 500
-                        billboard.Parent = part
-                        local label = Instance.new("TextLabel")
-                        label.Size = UDim2.fromScale(1, 1)
-                        label.BackgroundTransparency = 1
-                        label.TextColor3 = Color3.fromRGB(255, 255, 0)
-                        label.TextStrokeTransparency = 0
-                        label.Font = Enum.Font.SourceSansBold
-                        label.TextSize = 14
-                        label.Parent = billboard
-                        partsBillboards[part] = billboard
-                    end
-                    local billboard = partsBillboards[part]
-                    if billboard and root then
-                        local label = billboard:FindFirstChildWhichIsA("TextLabel")
-                        if label then
-                            local dist = (part.Position - root.Position).Magnitude
-                            label.Text = partData.name .. "\n[" .. string.format("%.1f", dist) .. "米]"
+                    if part:IsDescendantOf(workspace) then
+                        if not partsBillboards[part] then
+                            local billboard = Instance.new("BillboardGui")
+                            billboard.Name = "PartESP"
+                            billboard.Adornee = part
+                            billboard.Size = UDim2.new(0, 200, 0, 40)
+                            billboard.StudsOffset = Vector3.new(0, 2, 0)
+                            billboard.AlwaysOnTop = true
+                            billboard.MaxDistance = 500
+                            billboard.Parent = part
+                            local label = Instance.new("TextLabel")
+                            label.Size = UDim2.fromScale(1, 1)
+                            label.BackgroundTransparency = 1
+                            label.TextColor3 = Color3.fromRGB(255, 255, 0)
+                            label.TextStrokeTransparency = 0
+                            label.Font = Enum.Font.SourceSansBold
+                            label.TextSize = 14
+                            label.Parent = billboard
+                            partsBillboards[part] = billboard
+                        end
+                        local billboard = partsBillboards[part]
+                        if billboard and root then
+                            local label = billboard:FindFirstChildWhichIsA("TextLabel")
+                            if label then
+                                local dist = (part.Position - root.Position).Magnitude
+                                label.Text = partData.name .. "\n[" .. string.format("%.1f", dist) .. "米]"
+                            end
                         end
                     end
                 end
             end
 
             for part, billboard in pairs(partsBillboards) do
-                if not part.Parent then
+                if not part:IsDescendantOf(workspace) then
                     billboard:Destroy()
                     partsBillboards[part] = nil
                 end
@@ -487,7 +490,7 @@ Tabs.Main:AddToggle("AutoEscape", {
                                 for _, model in ipairs(kitFolder:GetChildren()) do
                                     if model:IsA("Model") then
                                         local lowerName = model.Name:lower()
-                                        if lowerName == "ai" or lowerName == "ai_anguirus" or lowerName == "ai_anguirus2" then
+                                        if monsterNames[lowerName] then
                                             local hum = model:FindFirstChild("Humanoid")
                                             local hrp = model:FindFirstChild("HumanoidRootPart")
                                             if hum and hum.Health > 0 and hrp then
