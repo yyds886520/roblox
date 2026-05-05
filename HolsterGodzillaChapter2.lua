@@ -97,7 +97,7 @@ local safeZonePosition = Vector3.new(-171.49, -451.59, -153.56)
 local generatorRoomPosition = Vector3.new(-12.83, -9.90, -143.77)
 local spawnPosition = Vector3.new(-6.98, -9.84, -0.95)
 
--- ==================== 怪物透视（高亮轮廓）====================
+-- ==================== 怪物透视（高亮轮廓，动态检测，无需重开开关）====================
 local monsterEspEnabled = false
 local monsterHighlights = {}
 local screenDistanceLabel
@@ -290,9 +290,10 @@ local function clearKeyESP()
     keyBillboards = {}
 end
 
--- ==================== 透视哥斯拉零件（修正版）====================
+-- ==================== 透视哥斯拉零件（自动清除已拾取标签）====================
 local partsEspEnabled = false
 local partsBillboards = {}
+
 local partPaths = {
     {path = {"CybotParts", "Heads", "Head"}, name = "头部"},
     {path = {"CybotParts", "LegLs", "LegL"}, name = "左腿"},
@@ -301,60 +302,80 @@ local partPaths = {
     {path = {"CybotParts", "Waists", "Waist"}, name = "腰部"},
 }
 
+local function getPartByPath(pathTable)
+    local container = workspace
+    for _, folderName in ipairs(pathTable) do
+        container = container:FindFirstChild(folderName)
+        if not container then return nil end
+    end
+    if container:IsA("BasePart") then return container end
+    return nil
+end
+
+local function removePartLabel(part)
+    if partsBillboards[part] then
+        partsBillboards[part]:Destroy()
+        partsBillboards[part] = nil
+    end
+end
+
 local function updatePartsESP()
+    -- 为每个零件安装Parent监听，一旦被移走就自动清除标签
+    for _, partData in ipairs(partPaths) do
+        local part = getPartByPath(partData.path)
+        if part and not part:GetAttribute("_esp_watched") then
+            part:SetAttribute("_esp_watched", true)
+            part:GetPropertyChangedSignal("Parent"):Connect(function()
+                local currentPart = getPartByPath(partData.path)
+                if not currentPart or currentPart ~= part then
+                    removePartLabel(part)
+                end
+            end)
+        end
+    end
+
     task.spawn(function()
         while partsEspEnabled do
             local char = player.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             
             for _, partData in ipairs(partPaths) do
-                local container = workspace
-                local valid = true
-                for _, folderName in ipairs(partData.path) do
-                    container = container:FindFirstChild(folderName)
-                    if not container then
-                        valid = false
-                        break
+                local part = getPartByPath(partData.path)
+                if part and part:IsA("BasePart") then
+                    if not partsBillboards[part] then
+                        local billboard = Instance.new("BillboardGui")
+                        billboard.Name = "PartESP"
+                        billboard.Adornee = part
+                        billboard.Size = UDim2.new(0, 200, 0, 40)
+                        billboard.StudsOffset = Vector3.new(0, 2, 0)
+                        billboard.AlwaysOnTop = true
+                        billboard.MaxDistance = 500
+                        billboard.Parent = part
+                        local label = Instance.new("TextLabel")
+                        label.Size = UDim2.fromScale(1, 1)
+                        label.BackgroundTransparency = 1
+                        label.TextColor3 = Color3.fromRGB(255, 255, 0)
+                        label.TextStrokeTransparency = 0
+                        label.Font = Enum.Font.SourceSansBold
+                        label.TextSize = 14
+                        label.Parent = billboard
+                        partsBillboards[part] = billboard
                     end
-                end
-                if valid and container:IsA("BasePart") then
-                    local part = container
-                    if part:IsDescendantOf(workspace) then
-                        if not partsBillboards[part] then
-                            local billboard = Instance.new("BillboardGui")
-                            billboard.Name = "PartESP"
-                            billboard.Adornee = part
-                            billboard.Size = UDim2.new(0, 200, 0, 40)
-                            billboard.StudsOffset = Vector3.new(0, 2, 0)
-                            billboard.AlwaysOnTop = true
-                            billboard.MaxDistance = 500
-                            billboard.Parent = part
-                            local label = Instance.new("TextLabel")
-                            label.Size = UDim2.fromScale(1, 1)
-                            label.BackgroundTransparency = 1
-                            label.TextColor3 = Color3.fromRGB(255, 255, 0)
-                            label.TextStrokeTransparency = 0
-                            label.Font = Enum.Font.SourceSansBold
-                            label.TextSize = 14
-                            label.Parent = billboard
-                            partsBillboards[part] = billboard
-                        end
-                        local billboard = partsBillboards[part]
-                        if billboard and root then
-                            local label = billboard:FindFirstChildWhichIsA("TextLabel")
-                            if label then
-                                local dist = (part.Position - root.Position).Magnitude
-                                label.Text = partData.name .. "\n[" .. string.format("%.1f", dist) .. "米]"
-                            end
+                    local billboard = partsBillboards[part]
+                    if billboard and root then
+                        local label = billboard:FindFirstChildWhichIsA("TextLabel")
+                        if label then
+                            local dist = (part.Position - root.Position).Magnitude
+                            label.Text = partData.name .. "\n[" .. string.format("%.1f", dist) .. "米]"
                         end
                     end
-                end
-            end
-
-            for part, billboard in pairs(partsBillboards) do
-                if not part:IsDescendantOf(workspace) then
-                    billboard:Destroy()
-                    partsBillboards[part] = nil
+                else
+                    -- 零件不在原位置，清理可能残留的旧标签
+                    for trackedPart, _ in pairs(partsBillboards) do
+                        if getPartByPath(partData.path) ~= trackedPart then
+                            removePartLabel(trackedPart)
+                        end
+                    end
                 end
             end
 
@@ -513,19 +534,14 @@ Tabs.Main:AddToggle("AutoEscape", {
     end
 })
 
--- ==================== 自动降低焦虑 ====================
+-- ==================== 自动降低焦虑（永久锁定，不自动退出）====================
 local autoLowerAnxietyEnabled = false
 local monitorPrompt = nil
-local reduceThread = nil
 
 local function stopAnxietyControl()
-    if reduceThread then task.cancel(reduceThread) reduceThread = nil end
     if monitorPrompt then
         pcall(function()
             monitorPrompt:InputHoldEnd()
-            task.wait(0.2)
-            ReplicatedStorage:WaitForChild("CloseCameras"):FireServer(player)
-            ReplicatedStorage:WaitForChild("InduceAnxiety"):FireServer(player)
         end)
         monitorPrompt = nil
     end
@@ -539,57 +555,24 @@ Tabs.Main:AddToggle("AutoLowerAnxiety", {
         if state then
             task.spawn(function()
                 while autoLowerAnxietyEnabled do
-                    local anxietyValue = 0
-                    local playerGui = player:WaitForChild("PlayerGui")
-                    local flashlightGui = playerGui:FindFirstChild("FlashLightGui")
-                    if flashlightGui then
-                        local percentageLabel = flashlightGui:FindFirstChild("Percentage")
-                        if not percentageLabel then
-                            local frame = flashlightGui:FindFirstChild("Frame")
-                            if frame then
-                                percentageLabel = frame:FindFirstChild("Percentage")
-                            end
-                        end
-                        if percentageLabel and percentageLabel:IsA("TextLabel") then
-                            local text = percentageLabel.Text
-                            local num = tonumber(text:match("%d+"))
-                            if num then anxietyValue = num end
-                        end
-                    end
-
-                    if anxietyValue >= 80 then
-                        local char = player.Character
-                        if char and char:FindFirstChild("HumanoidRootPart") then
-                            if not monitorPrompt then
-                                char.HumanoidRootPart.CFrame = CFrame.new(spawnPosition)
-                                task.wait(1)
-                                for _, part in ipairs(workspace:GetPartBoundsInRadius(spawnPosition, 10)) do
-                                    local model = part.Parent
-                                    if model then
-                                        local prompt = model:FindFirstChildWhichIsA("ProximityPrompt")
-                                        if prompt then
-                                            monitorPrompt = prompt
-                                            break
-                                        end
-                                    end
-                                end
-                                if monitorPrompt then
-                                    pcall(function() monitorPrompt.HoldDuration = 0 end)
-                                    pcall(function() monitorPrompt:InputHoldBegin() end)
-                                    reduceThread = task.spawn(function()
-                                        while autoLowerAnxietyEnabled and monitorPrompt do
-                                            pcall(function()
-                                                ReplicatedStorage:WaitForChild("ReduceAnxiety"):FireServer(player)
-                                            end)
-                                            task.wait(1)
-                                        end
-                                    end)
+                    local char = player.Character
+                    if char and char:FindFirstChild("HumanoidRootPart") and not monitorPrompt then
+                        char.HumanoidRootPart.CFrame = CFrame.new(spawnPosition)
+                        task.wait(1)
+                        for _, part in ipairs(workspace:GetPartBoundsInRadius(spawnPosition, 10)) do
+                            local model = part.Parent
+                            if model then
+                                local prompt = model:FindFirstChildWhichIsA("ProximityPrompt")
+                                if prompt then
+                                    monitorPrompt = prompt
+                                    break
                                 end
                             end
                         end
-                    else
                         if monitorPrompt then
-                            stopAnxietyControl()
+                            pcall(function() monitorPrompt.HoldDuration = 0 end)
+                            pcall(function() monitorPrompt:InputHoldBegin() end)
+                            Fluent:Notify({ Title = "降焦虑", Content = "已锁定焦虑值", Duration = 2 })
                         end
                     end
                     task.wait(2)
