@@ -94,8 +94,8 @@ local function ShowAnnouncement(callback)
 更新时间：]] .. os.date("%Y-%m-%d %H:%M:%S") .. [[
 
 【本次更新内容】
-• 新增：启动自动清理 STARTER_PACK
-• 清理范围：PlayerGui/HUD 及 Workspace
+• 新增自动拾取黑币（在活动标签页）
+• 启动自动清理付费按钮
 
 放心使用吧！]]
     content.TextColor3 = Color3.fromRGB(220, 220, 220)
@@ -174,7 +174,7 @@ local Tabs = {
     Info = Window:AddTab({ Title = "信息", Icon = "info" }),
     Main = Window:AddTab({ Title = "主要", Icon = "box" }),
     Auto = Window:AddTab({ Title = "自动", Icon = "bot" }),
-    Easter = Window:AddTab({ Title = "彩蛋", Icon = "egg" }),
+    Easter = Window:AddTab({ Title = "活动", Icon = "egg" }),
     Speed = Window:AddTab({ Title = "速度", Icon = "gauge" }),
     Settings = Window:AddTab({ Title = "设置", Icon = "settings" })
 }
@@ -976,6 +976,32 @@ do
         end
     end)
     Options.AutoEggFarm:SetValue(false)
+end
+
+do
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local collectBlackCoin = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("EventService"):WaitForChild("RF"):WaitForChild("CollectInfinityCoin")
+    local running = false
+
+    local toggle = Tabs.Easter:AddToggle("AutoBlackCoin", {
+        Title = "自动拾取黑币",
+        Description = "仅快速拾取，不传送不屏蔽Boss",
+        Default = false
+    })
+
+    toggle:OnChanged(function(state)
+        running = state
+        if not state then return end
+        task.spawn(function()
+            while running do
+                pcall(function()
+                    collectBlackCoin:InvokeServer()
+                end)
+                task.wait(0.3)
+            end
+        end)
+    end)
+    Options.AutoBlackCoin:SetValue(false)
 end
 
 do
