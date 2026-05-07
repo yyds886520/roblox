@@ -8,14 +8,17 @@ local TweenService = game:GetService("TweenService")
 
 local EXT_COLOR = Color3.new(1, 1, 1)
 local DEFAULT_MULT = 3
-local TWEEN_TIME = 0.2
+local TWEEN_TIME = 0.25
+local NOTIFY_TWEEN_IN = 0.4
+local NOTIFY_TWEEN_OUT = 0.3
+local NOTIFY_STAY = 3
 
 local extendPart = nil
 local multiplier = DEFAULT_MULT
 local railsList = {}
 local tablePart = nil
 local uiCollapsed = false
-local main, sliderFrame, knob, label, toggleBtn, foldBtn, foldTriangle
+local main, contentFrame, sliderFrame, knob, label, foldBtn, foldTriangle
 local statusLabel
 
 local function initTableRef()
@@ -111,21 +114,80 @@ local function updateLine()
     end
 end
 
+local function showNotification(title, text, accentColor)
+    local notifGui = Instance.new("ScreenGui", pGui)
+    notifGui.ResetOnSpawn = false
+    notifGui.Name = "Notification"
+
+    local card = Instance.new("Frame", notifGui)
+    card.Size = UDim2.new(0, 260, 0, 70)
+    card.Position = UDim2.new(1, 20, 1, 20)
+    card.AnchorPoint = Vector2.new(0, 0)
+    card.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    card.BorderSizePixel = 0
+    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
+
+    local colorBar = Instance.new("Frame", card)
+    colorBar.Size = UDim2.new(0, 4, 1, -16)
+    colorBar.Position = UDim2.new(0, 8, 0, 8)
+    colorBar.BackgroundColor3 = accentColor or Color3.fromRGB(96, 205, 255)
+    Instance.new("UICorner", colorBar).CornerRadius = UDim.new(0, 2)
+
+    local titleLabel = Instance.new("TextLabel", card)
+    titleLabel.Text = title or ""
+    titleLabel.Font = Enum.Font.SourceSansBold
+    titleLabel.TextSize = 14
+    titleLabel.TextColor3 = accentColor or Color3.new(1, 1, 1)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Size = UDim2.new(1, -30, 0, 18)
+    titleLabel.Position = UDim2.new(0, 18, 0, 10)
+
+    local textLabel = Instance.new("TextLabel", card)
+    textLabel.Text = text or ""
+    textLabel.Font = Enum.Font.SourceSans
+    textLabel.TextSize = 12
+    textLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Size = UDim2.new(1, -30, 0, 0)
+    textLabel.Position = UDim2.new(0, 18, 0, 32)
+    textLabel.TextWrapped = true
+
+    local targetPos = UDim2.new(1, -280, 1, -90)
+    local tweenIn = TweenService:Create(card, TweenInfo.new(NOTIFY_TWEEN_IN, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = targetPos})
+    tweenIn:Play()
+    tweenIn.Completed:Wait()
+
+    wait(NOTIFY_STAY)
+
+    local tweenOut = TweenService:Create(card, TweenInfo.new(NOTIFY_TWEEN_OUT, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 20, 1, 20)})
+    tweenOut:Play()
+    tweenOut.Completed:Wait()
+
+    notifGui:Destroy()
+end
+
 local function toggleCollapse()
     uiCollapsed = not uiCollapsed
     local targetHeight = uiCollapsed and 28 or 115
-    local targetPos = uiCollapsed and UDim2.new(0, 20, 0, 200) or UDim2.new(0, 20, 0, 100)
     local tweenInfo = TweenInfo.new(TWEEN_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     local sizeTween = TweenService:Create(main, tweenInfo, {Size = UDim2.new(0, 220, 0, targetHeight)})
-    local posTween = TweenService:Create(main, tweenInfo, {Position = targetPos})
     sizeTween:Play()
-    posTween:Play()
-    foldTriangle.Rotation = uiCollapsed and 0 or 180
+
+    if uiCollapsed then
+        foldTriangle.Text = "▶"
+        task.delay(TWEEN_TIME, function()
+            contentFrame.Visible = false
+        end)
+    else
+        contentFrame.Visible = true
+        foldTriangle.Text = "▼"
+    end
 end
 
 local function buildUI()
     local screen = Instance.new("ScreenGui", pGui)
     screen.ResetOnSpawn = false
+    screen.Name = "BilliardHelper"
 
     main = Instance.new("Frame", screen)
     main.Size = UDim2.new(0, 220, 0, 115)
@@ -163,7 +225,6 @@ local function buildUI()
     foldTriangle.Size = UDim2.new(1, 0, 1, 0)
     foldTriangle.AnchorPoint = Vector2.new(0.5, 0.5)
     foldTriangle.Position = UDim2.new(0.5, 0, 0.5, 0)
-    foldTriangle.Rotation = 180
 
     local drag, dragStart, startPos
     titleBar.InputBegan:Connect(function(i)
@@ -185,7 +246,13 @@ local function buildUI()
 
     foldBtn.MouseButton1Click:Connect(toggleCollapse)
 
-    sliderFrame = Instance.new("Frame", main)
+    contentFrame = Instance.new("Frame", main)
+    contentFrame.Size = UDim2.new(1, 0, 1, -28)
+    contentFrame.Position = UDim2.new(0, 0, 0, 28)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.BorderSizePixel = 0
+
+    sliderFrame = Instance.new("Frame", contentFrame)
     sliderFrame.Size = UDim2.new(1, -20, 0, 6)
     sliderFrame.Position = UDim2.new(0, 10, 1, -28)
     sliderFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
@@ -200,7 +267,7 @@ local function buildUI()
     knob.BorderSizePixel = 0
     Instance.new("UICorner", knob).CornerRadius = UDim.new(0, 8)
 
-    label = Instance.new("TextLabel", main)
+    label = Instance.new("TextLabel", contentFrame)
     label.Size = UDim2.new(1, -20, 0, 16)
     label.Position = UDim2.new(0, 10, 1, -46)
     label.Font = Enum.Font.SourceSansSemibold
@@ -227,40 +294,24 @@ local function buildUI()
         end
     end)
 
-    local btnFrame = Instance.new("Frame", main)
-    btnFrame.Size = UDim2.new(1, -20, 0, 26)
-    btnFrame.Position = UDim2.new(0, 10, 0, 32)
-    btnFrame.BackgroundTransparency = 1
-
-    local function mkBtn(txt, x, w, cb)
-        local b = Instance.new("TextButton", btnFrame)
-        b.Text = txt
-        b.Size = UDim2.new(0, w, 1, 0)
-        b.Position = UDim2.new(0, x, 0, 0)
-        b.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        b.TextColor3 = Color3.new(1, 1, 1)
-        b.Font = Enum.Font.SourceSansBold
-        b.TextSize = 12
-        b.BorderSizePixel = 0
-        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
-        b.MouseButton1Click:Connect(cb)
-        return b
-    end
-
-    mkBtn("显/隐", 0, 50, function()
-        if extendPart then
-            extendPart.Transparency = extendPart.Transparency == 0 and 1 or 0
-        end
-    end)
-
-    mkBtn("初始化", 60, 50, function()
+    local initBtn = Instance.new("TextButton", contentFrame)
+    initBtn.Text = "初始化"
+    initBtn.Size = UDim2.new(0, 80, 0, 26)
+    initBtn.Position = UDim2.new(0.5, -40, 1, -70)
+    initBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    initBtn.TextColor3 = Color3.new(1, 1, 1)
+    initBtn.Font = Enum.Font.SourceSansBold
+    initBtn.TextSize = 12
+    initBtn.BorderSizePixel = 0
+    Instance.new("UICorner", initBtn).CornerRadius = UDim.new(0, 5)
+    initBtn.MouseButton1Click:Connect(function()
         initTableRef()
         initExtendPart()
     end)
 
-    statusLabel = Instance.new("TextLabel", main)
+    statusLabel = Instance.new("TextLabel", contentFrame)
     statusLabel.Size = UDim2.new(1, -20, 0, 16)
-    statusLabel.Position = UDim2.new(0, 10, 1, -62)
+    statusLabel.Position = UDim2.new(0, 10, 1, -90)
     statusLabel.Font = Enum.Font.SourceSans
     statusLabel.TextSize = 11
     statusLabel.TextColor3 = Color3.new(0.8, 0.8, 0.8)
@@ -270,9 +321,18 @@ end
 
 buildUI()
 
-if initTableRef() then
-    initExtendPart()
-end
+spawn(function()
+    local found = false
+    while not found do
+        if initTableRef() then
+            found = true
+            initExtendPart()
+            showNotification("台球小助手", "检测到游戏开始，已初始化", Color3.fromRGB(96, 205, 255))
+        else
+            wait(1)
+        end
+    end
+end)
 
 spawn(function()
     while true do
