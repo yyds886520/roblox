@@ -94,7 +94,9 @@ local function ShowAnnouncement(callback)
 更新时间：]] .. os.date("%Y-%m-%d %H:%M:%S") .. [[
 
 【本次更新内容】
-• 新增自动拾取黑币（在活动标签页）
+• 新增自动拾取黑币（活动标签页）
+• 黑币拾取速度提升至最快
+• 彩蛋改为纯快速拾取，取消传送和Boss屏蔽
 • 启动自动清理付费按钮
 
 放心使用吧！]]
@@ -822,158 +824,27 @@ do
 end
 
 do
-    local Players2 = game:GetService("Players")
-    local player2 = Players2.LocalPlayer
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local Workspace = game:GetService("Workspace")
-    local RunService2 = game:GetService("RunService")
-
-    local CollectEggRemote = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("EventService"):WaitForChild("RF"):WaitForChild("CollectEgg")
-    local BossFolder = Workspace:WaitForChild("BossTouchDetectors")
-
-    local TELEPORT_CFRAME = CFrame.new(715, 39, -2122)
-    local WALK_TO_POSITION = Vector3.new(707, 39, -2122)
-    local TELEPORT_DELAY = 2
-    local COLLECT_INTERVAL = 0.3
-    local COLLECT_DURATION = 7
-
-    local autoEnabled = false
-    local suppressConnection = nil
-    local speedSetConnection = nil
-
-    local function suppressBossesExceptBase2()
-        for i = 1, 16 do
-            if i == 2 or i == 16 then
-                local boss = BossFolder:FindFirstChild("base" .. i)
-                if boss then
-                    boss.Parent = BossFolder
-                    for _, part in ipairs(boss:GetDescendants()) do
-                        if part:IsA("BasePart") then
-                            part.CanCollide = true
-                            part.CanTouch = true
-                        end
-                    end
-                end
-            else
-                local boss = BossFolder:FindFirstChild("base" .. i)
-                if boss then
-                    for _, part in ipairs(boss:GetDescendants()) do
-                        if part:IsA("BasePart") then
-                            part.CanCollide = false
-                            part.CanTouch = false
-                        end
-                    end
-                    local touchInterest = boss:FindFirstChild("TouchInterest", true)
-                    if touchInterest then touchInterest:Destroy() end
-                    boss.Parent = nil
-                end
-            end
-        end
-    end
-
-    local function startSuppressLoop()
-        if suppressConnection then return end
-        suppressConnection = RunService2.Heartbeat:Connect(function()
-            if autoEnabled then suppressBossesExceptBase2() end
-        end)
-    end
-
-    local function stopSuppressLoop()
-        if suppressConnection then
-            suppressConnection:Disconnect()
-            suppressConnection = nil
-        end
-    end
-
-    local function setSpeedLoop()
-        local runningModels = Workspace:WaitForChild("RunningModels")
-        while autoEnabled do
-            for _, model in ipairs(runningModels:GetChildren()) do
-                if model:IsA("Model") and model:GetAttribute("OwnerId") == player2.UserId then
-                    model:SetAttribute("MovementSpeed", 550)
-                end
-            end
-            task.wait(0.2)
-        end
-    end
-
-    local function startSpeedSetter()
-        if speedSetConnection then return end
-        speedSetConnection = task.spawn(setSpeedLoop)
-    end
-
-    local function stopSpeedSetter()
-        if speedSetConnection then
-            task.cancel(speedSetConnection)
-            speedSetConnection = nil
-        end
-    end
-
-    local function onCharacterAdded(character)
-        if not autoEnabled then return end
-
-        local root = character:WaitForChild("HumanoidRootPart")
-        local humanoid = character:WaitForChild("Humanoid")
-
-        task.wait(TELEPORT_DELAY)
-
-        root.CFrame = TELEPORT_CFRAME
-        humanoid:MoveTo(WALK_TO_POSITION)
-
-        startSuppressLoop()
-
-        local startTime = tick()
-        local collectThread = task.spawn(function()
-            while autoEnabled and (tick() - startTime < COLLECT_DURATION) do
-                pcall(function() CollectEggRemote:InvokeServer() end)
-                task.wait(COLLECT_INTERVAL)
-            end
-        end)
-
-        repeat task.wait(0.1) until (tick() - startTime >= COLLECT_DURATION) or (not autoEnabled)
-        task.cancel(collectThread)
-
-        stopSuppressLoop()
-
-        if character and character:FindFirstChild("Humanoid") then
-            character.Humanoid.Died:Wait()
-        end
-    end
-
-    local charAddedConn
-    local function startListening()
-        if charAddedConn then charAddedConn:Disconnect() end
-        charAddedConn = player2.CharacterAdded:Connect(onCharacterAdded)
-        if player2.Character then
-            task.spawn(onCharacterAdded, player2.Character)
-        end
-        startSpeedSetter()
-    end
-
-    local function stopListening()
-        if charAddedConn then
-            charAddedConn:Disconnect()
-            charAddedConn = nil
-        end
-        stopSuppressLoop()
-        stopSpeedSetter()
-    end
+    local collectEgg = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("EventService"):WaitForChild("RF"):WaitForChild("CollectEgg")
+    local running = false
 
     local toggle = Tabs.Easter:AddToggle("AutoEggFarm", {
-        Title = "自动刷彩蛋",
-        Description = "全程无需操作",
+        Title = "快速拾取彩蛋",
+        Description = "纯快速拾取，不传送不屏蔽Boss",
         Default = false
     })
 
     toggle:OnChanged(function(state)
-        autoEnabled = state
-        if state then
-            startListening()
-            Fluent:Notify({ Title = "彩蛋", Content = "开始自动刷取", Duration = 2 })
-        else
-            stopListening()
-            Fluent:Notify({ Title = "彩蛋", Content = "已停止", Duration = 2 })
-        end
+        running = state
+        if not state then return end
+        task.spawn(function()
+            while running do
+                pcall(function()
+                    collectEgg:InvokeServer()
+                end)
+                task.wait(0.01)
+            end
+        end)
     end)
     Options.AutoEggFarm:SetValue(false)
 end
@@ -985,7 +856,7 @@ do
 
     local toggle = Tabs.Easter:AddToggle("AutoBlackCoin", {
         Title = "自动拾取黑币",
-        Description = "仅快速拾取，不传送不屏蔽Boss",
+        Description = "仅调用远程，不传送不屏蔽Boss",
         Default = false
     })
 
@@ -997,7 +868,7 @@ do
                 pcall(function()
                     collectBlackCoin:InvokeServer()
                 end)
-                task.wait(0.3)
+                task.wait(0.01)
             end
         end)
     end)
