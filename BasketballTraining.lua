@@ -14,12 +14,13 @@ local Window = Fluent:CreateWindow({
 Window.Root.Visible = true
 
 local Tabs = {
-    Main = Window:AddTab({ Title = "主要", Icon = "star" }),
+    Keys = Window:AddTab({ Title = "刷钥匙", Icon = "star" }),
+    Auto = Window:AddTab({ Title = "自动", Icon = "bot" }),
     Earth = Window:AddTab({ Title = "地球", Icon = "zap" }),
     Beach = Window:AddTab({ Title = "沙滩", Icon = "star" }),
-    Chapter3 = Window:AddTab({ Title = "海洋", Icon = "heart" }),
-    Chapter4 = Window:AddTab({ Title = "火山", Icon = "fire" }),
-    Chapter5 = Window:AddTab({ Title = "天空", Icon = "cloud" }),
+    Winter = Window:AddTab({ Title = "冬天", Icon = "heart" }),
+    Candy = Window:AddTab({ Title = "糖果", Icon = "fire" }),
+    Ocean = Window:AddTab({ Title = "海洋", Icon = "cloud" }),
     Settings = Window:AddTab({ Title = "设置", Icon = "settings" })
 }
 local Options = Fluent.Options
@@ -75,14 +76,45 @@ do
     end)
 end
 
--- 批量生成章节功能的函数
-local function createChapter(tab, chapterNumber, prefix)
+-- 地球力量需求表
+local earthPowerRequirement = {
+    "0力量", "500力量", "2.5千力量", "10千力量", "25千力量", "50千力量",
+    "70千力量", "125千力量", "250千力量", "650千力量", "1.5百万力量", "2.5力量"
+}
+
+-- 沙滩力量需求表
+local beachPowerRequirement = {
+    "0力量", "2.5百万力量", "5百万力量", "25百万力量", "50百万力量", "100百万力量",
+    "175百万力量", "250百万力量", "350百万力量", "500百万力量", "750百万力量", "1.25B力量"
+}
+
+-- 冬天力量需求表
+local winterPowerRequirement = {
+    "0力量", "1.5B力量", "3B力量", "9B力量", "18B力量", "35B力量",
+    "55B力量", "90B力量", "150B力量", "250B力量", "400B力量", "750B力量"
+}
+
+-- 糖果力量需求表
+local candyPowerRequirement = {
+    "0力量", "7T力量", "15T力量", "30T力量", "45T力量", "57T力量",
+    "85T力量", "125T力量", "175T力量", "285T力量", "500T力量", "1Qa力量"
+}
+
+-- 海洋力量需求表
+local oceanPowerRequirement = {
+    "0力量", "5Qa力量", "12.5Qa力量", "25Qa力量", "50Qa力量", "90Qa力量",
+    "150Qa力量", "250Qa力量", "400Qa力量", "700Qa力量", "1.2Qi力量", "2Qi力量"
+}
+
+-- 批量生成章节功能
+local function createChapter(tab, chapterNumber, prefix, powerTable)
     for level = 1, 12 do
         local args = { "Train", "Increment", level, chapterNumber }
         local running = false
+        local desc = "需" .. powerTable[level]
         local toggle = tab:AddToggle(prefix .. "Shot" .. level, {
             Title = "快速投篮 " .. level,
-            Description = "间隔0.01秒 Train/Increment (" .. level .. ", " .. chapterNumber .. ")",
+            Description = desc,
             Default = false
         })
         toggle:OnChanged(function(state)
@@ -102,19 +134,43 @@ local function createChapter(tab, chapterNumber, prefix)
 end
 
 -- 生成各章节
-createChapter(Tabs.Earth, 1, "Earth")
-createChapter(Tabs.Beach, 2, "Beach")
-createChapter(Tabs.Chapter3, 3, "Ch3")
-createChapter(Tabs.Chapter4, 4, "Ch4")
-createChapter(Tabs.Chapter5, 5, "Ch5")
+createChapter(Tabs.Earth, 1, "Earth", earthPowerRequirement)
+createChapter(Tabs.Beach, 2, "Beach", beachPowerRequirement)
+createChapter(Tabs.Winter, 3, "Winter", winterPowerRequirement)
+createChapter(Tabs.Candy, 4, "Candy", candyPowerRequirement)
+createChapter(Tabs.Ocean, 5, "Ocean", oceanPowerRequirement)
 
--- 主要：刷钻石钥匙
+-- 刷钥匙：白金
+do
+    local args = { "DunkBattle", "DunkBattleWin", "Aquaman" }
+    local running = false
+    local toggle = Tabs.Keys:AddToggle("PlatinumKey", {
+        Title = "刷钥匙(白金)",
+        Description = "循环获取白金钥匙",
+        Default = false
+    })
+    toggle:OnChanged(function(state)
+        running = state
+        if not state then return end
+        task.spawn(function()
+            while running do
+                pcall(function()
+                    game:GetService("ReplicatedStorage").Events.RequestServerAction:FireServer(unpack(args))
+                end)
+                task.wait(0.01)
+            end
+        end)
+    end)
+    Options.PlatinumKey:SetValue(false)
+end
+
+-- 刷钥匙：钻石
 do
     local args = { "DunkBattle", "DunkBattleWin", "Wizard" }
     local running = false
-    local toggle = Tabs.Main:AddToggle("DiamondKey", {
+    local toggle = Tabs.Keys:AddToggle("DiamondKey", {
         Title = "刷钻石钥匙",
-        Description = "间隔0.01秒循环发送",
+        Description = "循环获取钻石钥匙",
         Default = false
     })
     toggle:OnChanged(function(state)
@@ -132,13 +188,13 @@ do
     Options.DiamondKey:SetValue(false)
 end
 
--- 主要：自动开宝箱(钻石)
+-- 刷钥匙：黄金
 do
-    local args = { "Crates", "OpenOne", "Diamond", {} }
+    local args = { "DunkBattle", "DunkBattleWin", "Snow Gentleman" }
     local running = false
-    local toggle = Tabs.Main:AddToggle("AutoCrate", {
-        Title = "自动开宝箱(钻石)",
-        Description = "间隔0.01秒打开钻石宝箱",
+    local toggle = Tabs.Keys:AddToggle("GoldKey", {
+        Title = "刷钥匙(黄金)",
+        Description = "循环获取黄金钥匙",
         Default = false
     })
     toggle:OnChanged(function(state)
@@ -147,13 +203,111 @@ do
         task.spawn(function()
             while running do
                 pcall(function()
-                    game:GetService("ReplicatedStorage").Events.InvokeServerAction:InvokeServer(unpack(args))
+                    game:GetService("ReplicatedStorage").Events.RequestServerAction:FireServer(unpack(args))
                 end)
                 task.wait(0.01)
             end
         end)
     end)
-    Options.AutoCrate:SetValue(false)
+    Options.GoldKey:SetValue(false)
+end
+
+-- 刷钥匙：白银
+do
+    local args = { "DunkBattle", "DunkBattleWin", "Korblox Deathspeaker" }
+    local running = false
+    local toggle = Tabs.Keys:AddToggle("SilverKey", {
+        Title = "刷钥匙(白银)",
+        Description = "循环获取白银钥匙",
+        Default = false
+    })
+    toggle:OnChanged(function(state)
+        running = state
+        if not state then return end
+        task.spawn(function()
+            while running do
+                pcall(function()
+                    game:GetService("ReplicatedStorage").Events.RequestServerAction:FireServer(unpack(args))
+                end)
+                task.wait(0.01)
+            end
+        end)
+    end)
+    Options.SilverKey:SetValue(false)
+end
+
+-- 刷钥匙：青铜
+do
+    local args = { "DunkBattle", "DunkBattleWin", "Punk Kid" }
+    local running = false
+    local toggle = Tabs.Keys:AddToggle("BronzeKey", {
+        Title = "刷钥匙(青铜)",
+        Description = "循环获取青铜钥匙",
+        Default = false
+    })
+    toggle:OnChanged(function(state)
+        running = state
+        if not state then return end
+        task.spawn(function()
+            while running do
+                pcall(function()
+                    game:GetService("ReplicatedStorage").Events.RequestServerAction:FireServer(unpack(args))
+                end)
+                task.wait(0.01)
+            end
+        end)
+    end)
+    Options.BronzeKey:SetValue(false)
+end
+
+-- 自动：自动领取在线礼物
+do
+    local running = false
+    local toggle = Tabs.Auto:AddToggle("AutoPlaytimeReward", {
+        Title = "自动领取在线礼物",
+        Description = "循环领取全部12个奖励",
+        Default = false
+    })
+    toggle:OnChanged(function(state)
+        running = state
+        if not state then return end
+        task.spawn(function()
+            while running do
+                for reward = 1, 12 do
+                    if not running then break end
+                    pcall(function()
+                        game:GetService("ReplicatedStorage").Events.InvokeServerAction:InvokeServer("PlaytimeRewards", "Request", reward)
+                    end)
+                    task.wait(0.01)
+                end
+                task.wait(0.01)
+            end
+        end)
+    end)
+    Options.AutoPlaytimeReward:SetValue(false)
+end
+
+-- 自动：自动重生
+do
+    local running = false
+    local toggle = Tabs.Auto:AddToggle("AutoRebirth", {
+        Title = "自动重生",
+        Description = "重生后收益翻倍",
+        Default = false
+    })
+    toggle:OnChanged(function(state)
+        running = state
+        if not state then return end
+        task.spawn(function()
+            while running do
+                pcall(function()
+                    game:GetService("ReplicatedStorage").Events.InvokeServerAction:InvokeServer("Rebirths", "Request")
+                end)
+                task.wait(0.01)
+            end
+        end)
+    end)
+    Options.AutoRebirth:SetValue(false)
 end
 
 -- 设置
