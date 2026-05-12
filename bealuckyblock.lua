@@ -1,4 +1,3 @@
--- // 稳定加载 Fluent 及组件 (带重试)
 local function safeLoadBuilder(url, retryCount)
     retryCount = retryCount or 3
     for i = 1, retryCount do
@@ -917,13 +916,12 @@ do
 
     local autoEnabled = false
     local suppressConnection = nil
-    local speedSetConnection = nil
 
-    local function suppressBossesExceptBase2and16()
+    local function suppressBossesExcept1and16()
         if not BossFolder then return end
         pcall(function()
             for i = 1, 16 do
-                if i == 2 or i == 16 then
+                if i == 1 or i == 16 then
                     local boss = BossFolder:FindFirstChild("base" .. i)
                     if boss then
                         boss.Parent = BossFolder
@@ -956,7 +954,7 @@ do
         if not BossFolder then return end
         if suppressConnection then return end
         suppressConnection = RunService2.Heartbeat:Connect(function()
-            if autoEnabled then suppressBossesExceptBase2and16() end
+            if autoEnabled then suppressBossesExcept1and16() end
         end)
     end
 
@@ -964,33 +962,6 @@ do
         if suppressConnection then
             suppressConnection:Disconnect()
             suppressConnection = nil
-        end
-    end
-
-    local function setSpeedLoop()
-        local runningModels = Workspace:WaitForChild("RunningModels", 3)
-        if not runningModels then return end
-        while autoEnabled do
-            pcall(function()
-                for _, model in ipairs(runningModels:GetChildren()) do
-                    if model:IsA("Model") and model:GetAttribute("OwnerId") == player2.UserId then
-                        model:SetAttribute("MovementSpeed", 550)
-                    end
-                end
-            end)
-            task.wait(0.2)
-        end
-    end
-
-    local function startSpeedSetter()
-        if speedSetConnection then return end
-        speedSetConnection = task.spawn(setSpeedLoop)
-    end
-
-    local function stopSpeedSetter()
-        if speedSetConnection then
-            task.cancel(speedSetConnection)
-            speedSetConnection = nil
         end
     end
 
@@ -1033,7 +1004,6 @@ do
         if player2.Character then
             task.spawn(onCharacterAdded, player2.Character)
         end
-        startSpeedSetter()
     end
 
     local function stopListening()
@@ -1042,12 +1012,11 @@ do
             charAddedConn = nil
         end
         stopSuppressLoop()
-        stopSpeedSetter()
     end
 
     local toggle = Tabs.Easter:AddToggle("AutoEggFarm", {
         Title = "快速拾取蜜块",
-        Description = "自动传送、屏蔽Boss、高速拾取",
+        Description = "自动传送、屏蔽Boss(保留1和16)、高速拾取",
         Default = false
     })
 
