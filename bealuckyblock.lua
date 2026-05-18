@@ -155,14 +155,15 @@ local function ShowAnnouncement(callback)
     content.Size = UDim2.new(0.85, 0, 0.6, 0)
     content.Position = UDim2.fromOffset(24, 62)
     content.BackgroundTransparency = 1
-    content.Text = [[此脚本由小梦制作
+    content.Text = [[小梦制作
 
-更新时间：]] .. os.date("%Y-%m-%d %H:%M:%S") .. [[
+更新日期：]] .. os.date("%Y-%m-%d %H:%M:%S") .. [[
 
-【本次更新内容】
-• 蜜块活动上线，支持快速拾取
-• 拾取时自动前往活动点并屏蔽Boss
-• 黑币拾取功能正常运作
+本次更新内容：
+• 删除了自动升级速度的功能
+• 自动刷脑红目标改为僧侣位置
+• 自选Boss免疫新增了僧侣怪物屏蔽
+• 兑换码功能更新了，快去领取吧
 
 放心使用吧！]]
     content.TextColor3 = Color3.fromRGB(220, 220, 220)
@@ -723,29 +724,9 @@ do
 end
 
 do
-    Tabs.Auto:AddSection("速度升级")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local upgrade = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("UpgradesService"):WaitForChild("RF"):WaitForChild("Upgrade")
-    local running = false
-
-    local toggle = Tabs.Auto:AddToggle("AMS", { Title = "自动升级速度", Default = false })
-    toggle:OnChanged(function(state)
-        running = state
-        if not state then return end
-        task.spawn(function()
-            while running do
-                pcall(function() upgrade:InvokeServer("MovementSpeed", 1) end)
-                task.wait(0.5)
-            end
-        end)
-    end)
-    Options.AMS:SetValue(false)
-end
-
-do
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local redeem = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("CodesService"):WaitForChild("RF"):WaitForChild("RedeemCode")
-    local codes = { "GOD", "ZEUS", "RELEASE", "CORALUKE", "TR9MP1238", "M2ZF4KYR", "FIX31", "MAGIA" }
+    local codes = { "RADIOACTIVE", "BEE", "DinoByte", "CORALUKE", "GOD", "ZEUS", "RELEASE", "TR9MP1238", "M2ZF4KYR", "FIX31", "MAGIA" }
     Tabs.Main:AddButton({
         Title = "兑换所有礼包码",
         Callback = function()
@@ -764,7 +745,7 @@ do
     local selectedBosses = {}
     
     local bossOptions = {}
-    for i = 1, 16 do
+    for i = 1, 17 do
         table.insert(bossOptions, "base" .. i)
     end
     
@@ -830,7 +811,7 @@ do
                     local humanoid = character:WaitForChild("Humanoid")
                     local userId = player4.UserId
                     local modelsFolder = workspace:WaitForChild("RunningModels")
-                    local target = workspace:WaitForChild("CollectZones"):WaitForChild("base16")
+                    local target = workspace:WaitForChild("CollectZones"):WaitForChild("base17")
 
                     root.CFrame = CFrame.new(715, 39, -2122)
                     task.wait(0.3)
@@ -917,11 +898,11 @@ do
     local autoEnabled = false
     local suppressConnection = nil
 
-    local function suppressBossesExcept1and16()
+    local function suppressBossesExcept1and17()
         if not BossFolder then return end
         pcall(function()
-            for i = 1, 16 do
-                if i == 1 or i == 16 then
+            for i = 1, 17 do
+                if i == 1 or i == 17 then
                     local boss = BossFolder:FindFirstChild("base" .. i)
                     if boss then
                         boss.Parent = BossFolder
@@ -954,7 +935,7 @@ do
         if not BossFolder then return end
         if suppressConnection then return end
         suppressConnection = RunService2.Heartbeat:Connect(function()
-            if autoEnabled then suppressBossesExcept1and16() end
+            if autoEnabled then suppressBossesExcept1and17() end
         end)
     end
 
@@ -1016,7 +997,7 @@ do
 
     local toggle = Tabs.Easter:AddToggle("AutoEggFarm", {
         Title = "快速拾取蜜块",
-        Description = "自动传送、屏蔽Boss(保留1和16)、高速拾取",
+        Description = "自动传送、屏蔽Boss(保留1和17)、高速拾取",
         Default = false
     })
 
