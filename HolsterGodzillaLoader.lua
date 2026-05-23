@@ -27,10 +27,10 @@ stroke.Transparency = 0.5
 
 local btn1 = Instance.new("TextButton")
 btn1.Size = UDim2.fromOffset(160, 50)
-btn1.Position = UDim2.fromScale(0.5, 0.35)
+btn1.Position = UDim2.fromScale(0.5, 0.25)
 btn1.AnchorPoint = Vector2.new(0.5, 0.5)
 btn1.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-btn1.Text = "第1章"
+btn1.Text = "第1夜"
 btn1.TextColor3 = Color3.fromRGB(0, 0, 0)
 btn1.Font = Enum.Font.SourceSansBold
 btn1.TextSize = 20
@@ -40,10 +40,10 @@ Instance.new("UICorner", btn1).CornerRadius = UDim.new(0, 10)
 
 local btn2 = Instance.new("TextButton")
 btn2.Size = UDim2.fromOffset(160, 50)
-btn2.Position = UDim2.fromScale(0.5, 0.65)
+btn2.Position = UDim2.fromScale(0.5, 0.45)
 btn2.AnchorPoint = Vector2.new(0.5, 0.5)
 btn2.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-btn2.Text = "第2章"
+btn2.Text = "第2夜"
 btn2.TextColor3 = Color3.fromRGB(0, 0, 0)
 btn2.Font = Enum.Font.SourceSansBold
 btn2.TextSize = 20
@@ -51,9 +51,22 @@ btn2.BorderSizePixel = 0
 btn2.Parent = frame
 Instance.new("UICorner", btn2).CornerRadius = UDim.new(0, 10)
 
+local btn3 = Instance.new("TextButton")
+btn3.Size = UDim2.fromOffset(160, 50)
+btn3.Position = UDim2.fromScale(0.5, 0.65)
+btn3.AnchorPoint = Vector2.new(0.5, 0.5)
+btn3.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+btn3.Text = "第3章"
+btn3.TextColor3 = Color3.fromRGB(0, 0, 0)
+btn3.Font = Enum.Font.SourceSansBold
+btn3.TextSize = 20
+btn3.BorderSizePixel = 0
+btn3.Parent = frame
+Instance.new("UICorner", btn3).CornerRadius = UDim.new(0, 10)
+
 local TweenService = game:GetService("TweenService")
 local openTween = TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-    Size = UDim2.fromOffset(220, 180)
+    Size = UDim2.fromOffset(220, 260)
 })
 openTween:Play()
 
@@ -74,4 +87,8 @@ end)
 
 btn2.MouseButton1Click:Connect(function()
     closeAndRun("https://raw.githubusercontent.com/xiaomeng0930/QWQ/refs/heads/main/HolsterGodzillaChapter2.lua")
+end)
+
+btn3.MouseButton1Click:Connect(function()
+    closeAndRun("https://raw.githubusercontent.com/xiaomeng0930/QWQ/refs/heads/main/%C2%A0HolsterGodzillaChapter3.lua")
 end)
