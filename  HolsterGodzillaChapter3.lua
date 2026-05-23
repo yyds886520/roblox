@@ -228,36 +228,39 @@ local function updateKeyESP()
         while keyEspEnabled do
             local char = player.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
-            local keyPart = workspace:FindFirstChild("Map")
+            local keyModel = workspace:FindFirstChild("Map")
                 and workspace.Map:FindFirstChild("Fence")
                 and workspace.Map.Fence:FindFirstChild("Keys")
                 and workspace.Map.Fence.Keys:FindFirstChild("Key")
 
-            if keyPart and keyPart:IsA("BasePart") then
-                if not keyBillboard or not keyBillboard.Parent then
-                    local billboard = Instance.new("BillboardGui")
-                    billboard.Name = "KeyESP"
-                    billboard.Adornee = keyPart
-                    billboard.Size = UDim2.new(0, 200, 0, 40)
-                    billboard.StudsOffset = Vector3.new(0, 2, 0)
-                    billboard.AlwaysOnTop = true
-                    billboard.MaxDistance = 500
-                    billboard.Parent = keyPart
-                    local label = Instance.new("TextLabel")
-                    label.Size = UDim2.fromScale(1, 1)
-                    label.BackgroundTransparency = 1
-                    label.TextColor3 = Color3.fromRGB(0, 255, 255)
-                    label.TextStrokeTransparency = 0
-                    label.Font = Enum.Font.SourceSansBold
-                    label.TextSize = 14
-                    label.Parent = billboard
-                    keyBillboard = billboard
-                end
-                if keyBillboard and keyBillboard.Adornee == keyPart and root then
-                    local label = keyBillboard:FindFirstChildWhichIsA("TextLabel")
-                    if label then
-                        local dist = (keyPart.Position - root.Position).Magnitude
-                        label.Text = "钥匙\n[" .. string.format("%.1f", dist) .. "米]"
+            if keyModel and keyModel:IsA("Model") then
+                local mainPart = keyModel.PrimaryPart or keyModel:FindFirstChildWhichIsA("BasePart")
+                if mainPart then
+                    if not keyBillboard or not keyBillboard.Parent then
+                        local billboard = Instance.new("BillboardGui")
+                        billboard.Name = "KeyESP"
+                        billboard.Adornee = mainPart
+                        billboard.Size = UDim2.new(0, 200, 0, 40)
+                        billboard.StudsOffset = Vector3.new(0, 2, 0)
+                        billboard.AlwaysOnTop = true
+                        billboard.MaxDistance = 500
+                        billboard.Parent = mainPart
+                        local label = Instance.new("TextLabel")
+                        label.Size = UDim2.fromScale(1, 1)
+                        label.BackgroundTransparency = 1
+                        label.TextColor3 = Color3.fromRGB(0, 255, 255)
+                        label.TextStrokeTransparency = 0
+                        label.Font = Enum.Font.SourceSansBold
+                        label.TextSize = 14
+                        label.Parent = billboard
+                        keyBillboard = billboard
+                    end
+                    if keyBillboard and root then
+                        local label = keyBillboard:FindFirstChildWhichIsA("TextLabel")
+                        if label then
+                            local dist = (mainPart.Position - root.Position).Magnitude
+                            label.Text = "钥匙\n[" .. string.format("%.1f", dist) .. "米]"
+                        end
                     end
                 end
             else
