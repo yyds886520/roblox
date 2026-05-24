@@ -15,7 +15,9 @@ local Window = Fluent:CreateWindow({
 Window.Root.Visible = true
 
 local Tabs = {
+    Main = Window:AddTab({ Title = "主要", Icon = "box" }),
     ESP = Window:AddTab({ Title = "透视", Icon = "eye" }),
+    Teleport = Window:AddTab({ Title = "传送", Icon = "map-pin" }),
     Other = Window:AddTab({ Title = "其他", Icon = "settings" })
 }
 
@@ -90,20 +92,40 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
--- ==================== 怪物透视 ====================
 local monsterEspEnabled = false
 local monsterHighlights = {}
 local screenDistanceLabel
 
-local monsterNames = {
-    ["lunchlady"] = "午餐女士",
-    ["jaguar"] = "美洲豹",
-    ["ai"] = "AI守卫"
+local monsterPaths = {
+    { path = {"kit", "Jaguar"}, name = "美洲豹" },
+    { path = {"kit", "Lunchlady"}, name = "午餐女士" },
+    { path = {"kit", "ShadowGrin"}, name = "暗影狞笑" },
+    { path = {"kit", "Soul_AI"}, name = "灵魂AI" },
 }
 
-local function getMonsterDisplayName(actualName)
-    local key = actualName:lower()
-    return monsterNames[key] or actualName
+local function getDynamicMonster()
+    local kit = workspace:FindFirstChild("kit")
+    if kit then
+        local children = kit:GetChildren()
+        local target = children[7]
+        if target and target:IsA("Model") then
+            return target, target.Name
+        end
+    end
+    return nil, nil
+end
+
+local function isModelTracked(model)
+    for _, data in ipairs(monsterPaths) do
+        local m = workspace:FindFirstChild(data.path[1])
+        for i = 2, #data.path do
+            m = m and m:FindFirstChild(data.path[i])
+        end
+        if m == model then
+            return true
+        end
+    end
+    return false
 end
 
 local function createScreenGui()
@@ -165,33 +187,55 @@ local function removeMonsterHighlight(model)
     end
 end
 
+local function findMonsterByPath(pathTable)
+    local current = workspace
+    for _, name in ipairs(pathTable) do
+        current = current:FindFirstChild(name)
+        if not current then return nil end
+    end
+    if current:IsA("Model") then return current end
+    return nil
+end
+
 local function updateMonsterESP()
     task.spawn(function()
         while monsterEspEnabled do
             local char = player.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
-            local kitFolder = workspace:FindFirstChild("kit")
             local distances = {}
 
-            if kitFolder then
-                for _, model in ipairs(kitFolder:GetChildren()) do
-                    if model:IsA("Model") then
-                        local lowerName = model.Name:lower()
-                        if monsterNames[lowerName] then
-                            local hum = model:FindFirstChild("Humanoid")
-                            local hrp = model:FindFirstChild("HumanoidRootPart")
-                            if hum and hum.Health > 0 and hrp then
-                                local displayName = getMonsterDisplayName(model.Name)
-                                if not monsterHighlights[model] then
-                                    createMonsterHighlight(model)
-                                end
-                                if root then
-                                    local dist = (hrp.Position - root.Position).Magnitude
-                                    if not distances[displayName] or dist < distances[displayName] then
-                                        distances[displayName] = dist
-                                    end
-                                end
+            for _, target in ipairs(monsterPaths) do
+                local model = findMonsterByPath(target.path)
+                if model and model:IsA("Model") then
+                    local hum = model:FindFirstChild("Humanoid")
+                    local hrp = model:FindFirstChild("HumanoidRootPart")
+                    if hum and hum.Health > 0 and hrp then
+                        if not monsterHighlights[model] then
+                            createMonsterHighlight(model)
+                        end
+                        if root then
+                            local dist = (hrp.Position - root.Position).Magnitude
+                            if not distances[target.name] or dist < distances[target.name] then
+                                distances[target.name] = dist
                             end
+                        end
+                    end
+                end
+            end
+
+            local dynModel, dynName = getDynamicMonster()
+            if dynModel and not isModelTracked(dynModel) then
+                local hum = dynModel:FindFirstChild("Humanoid")
+                local hrp = dynModel:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and hrp then
+                    if not monsterHighlights[dynModel] then
+                        createMonsterHighlight(dynModel)
+                    end
+                    if root then
+                        local dist = (hrp.Position - root.Position).Magnitude
+                        local displayName = "第7怪物(" .. dynName .. ")"
+                        if not distances[displayName] or dist < distances[displayName] then
+                            distances[displayName] = dist
                         end
                     end
                 end
@@ -219,7 +263,6 @@ local function clearMonsterESP()
     destroyScreenGui()
 end
 
--- ==================== 透视钥匙 ====================
 local keyEspEnabled = false
 local keyBillboard = nil
 
@@ -281,7 +324,204 @@ local function clearKeyESP()
     end
 end
 
--- ==================== ESP 标签页 ====================
+local soulEspEnabled = false
+local soulBillboards = {}
+
+local function updateSoulESP()
+    task.spawn(function()
+        while soulEspEnabled do
+            local char = player.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+
+            local soulsFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Souls")
+            if soulsFolder then
+                for _, obj in ipairs(soulsFolder:GetDescendants()) do
+                    if obj:IsA("BasePart") and obj.Name == "SoulPart" then
+                        if not soulBillboards[obj] then
+                            local billboard = Instance.new("BillboardGui")
+                            billboard.Name = "SoulESP"
+                            billboard.Adornee = obj
+                            billboard.Size = UDim2.new(0, 200, 0, 40)
+                            billboard.StudsOffset = Vector3.new(0, 2, 0)
+                            billboard.AlwaysOnTop = true
+                            billboard.MaxDistance = 300
+                            billboard.Parent = obj
+                            local label = Instance.new("TextLabel")
+                            label.Size = UDim2.fromScale(1, 1)
+                            label.BackgroundTransparency = 1
+                            label.TextColor3 = Color3.fromRGB(0, 150, 255)
+                            label.TextStrokeTransparency = 0
+                            label.Font = Enum.Font.SourceSansBold
+                            label.TextSize = 14
+                            label.Parent = billboard
+                            soulBillboards[obj] = billboard
+                        end
+                        local billboard = soulBillboards[obj]
+                        if billboard and root then
+                            local label = billboard:FindFirstChildWhichIsA("TextLabel")
+                            if label then
+                                local dist = (obj.Position - root.Position).Magnitude
+                                label.Text = "豆子\n[" .. string.format("%.1f", dist) .. "米]"
+                            end
+                        end
+                    end
+                end
+            end
+
+            for obj, billboard in pairs(soulBillboards) do
+                if not obj:IsDescendantOf(workspace) then
+                    billboard:Destroy()
+                    soulBillboards[obj] = nil
+                end
+            end
+
+            task.wait(0.5)
+        end
+    end)
+end
+
+local function clearSoulESP()
+    for obj, billboard in pairs(soulBillboards) do
+        billboard:Destroy()
+    end
+    soulBillboards = {}
+end
+
+local nightVisionEnabled = false
+
+local function enableNightVision()
+    nightVisionEnabled = true
+    task.spawn(function()
+        while nightVisionEnabled do
+            pcall(function()
+                local lighting = game:GetService("Lighting")
+                lighting.Ambient = Color3.fromRGB(255, 255, 255)
+                lighting.Brightness = 2
+                lighting.ClockTime = 14
+                lighting.FogEnd = 100000
+                lighting.GlobalShadows = false
+            end)
+            task.wait(0.5)
+        end
+    end)
+end
+
+local function disableNightVision()
+    nightVisionEnabled = false
+    pcall(function()
+        local lighting = game:GetService("Lighting")
+        lighting.Ambient = Color3.fromRGB(0, 0, 0)
+        lighting.Brightness = 1
+        lighting.FogEnd = 1000
+        lighting.GlobalShadows = true
+    end)
+end
+
+Tabs.Main:AddButton({
+    Title = "一键吃豆",
+    Callback = function()
+        local char = player.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then
+            Fluent:Notify({ Title = "失败", Content = "角色未加载", Duration = 2 })
+            return
+        end
+        local root = char.HumanoidRootPart
+
+        local SAFE_DISTANCE = 25
+
+        local function isNearMonster(pos)
+            local kit = workspace:FindFirstChild("kit")
+            if not kit then return false end
+            for _, model in ipairs(kit:GetChildren()) do
+                if model:IsA("Model") then
+                    local hrp = model:FindFirstChild("HumanoidRootPart")
+                    if hrp and (hrp.Position - pos).Magnitude < SAFE_DISTANCE then
+                        return true
+                    end
+                end
+            end
+            return false
+        end
+
+        local function scanSouls()
+            local positions = {}
+            local soulsFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Souls")
+            if soulsFolder then
+                for _, part in ipairs(soulsFolder:GetDescendants()) do
+                    if part:IsA("BasePart") and part.Name == "SoulPart" then
+                        table.insert(positions, part.Position)
+                    end
+                end
+            end
+            return positions
+        end
+
+        local totalCount = 0
+
+        for round = 1, 3 do
+            local visitedPositions = {}
+            local positions = scanSouls()
+            if #positions == 0 then break end
+
+            while #positions > 0 do
+                table.sort(positions, function(a, b)
+                    return (a - root.Position).Magnitude < (b - root.Position).Magnitude
+                end)
+
+                local safeFound = false
+                for _, targetPos in ipairs(positions) do
+                    if not visitedPositions[targetPos] and not isNearMonster(targetPos) then
+                        root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
+                        task.wait(0.05)
+                        visitedPositions[targetPos] = true
+                        totalCount = totalCount + 1
+                        safeFound = true
+                        break
+                    end
+                end
+
+                if not safeFound then
+                    Fluent:Notify({ Title = "警告", Content = "第" .. round .. "轮：剩余豆子太接近怪物，已跳过", Duration = 3 })
+                    break
+                end
+
+                local allPositions = scanSouls()
+                positions = {}
+                for _, p in ipairs(allPositions) do
+                    if not visitedPositions[p] then
+                        table.insert(positions, p)
+                    end
+                end
+            end
+        end
+
+        Fluent:Notify({ Title = "吃豆完成", Content = "共安全吃掉 " .. totalCount .. " 个豆", Duration = 3 })
+    end
+})
+
+Tabs.Main:AddToggle("NightVision", {
+    Title = "夜视",
+    Default = false,
+    Callback = function(state)
+        if state then enableNightVision() else disableNightVision() end
+    end
+})
+
+local garagePosition = Vector3.new(2201.70, -22.72, -1950.17)
+
+Tabs.Teleport:AddButton({
+    Title = "车库",
+    Callback = function()
+        local char = player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            pcall(function() char.HumanoidRootPart.CFrame = CFrame.new(garagePosition) end)
+            Fluent:Notify({ Title = "传送", Content = "已传送到车库", Duration = 2 })
+        else
+            Fluent:Notify({ Title = "传送失败", Content = "角色未加载", Duration = 2 })
+        end
+    end
+})
+
 Tabs.ESP:AddToggle("EnableMonsterESP", {
     Title = "透视怪物",
     Default = false,
@@ -305,6 +545,19 @@ Tabs.ESP:AddToggle("EnableKeyESP", {
             updateKeyESP()
         else
             clearKeyESP()
+        end
+    end
+})
+
+Tabs.ESP:AddToggle("EnableSoulESP", {
+    Title = "透视豆子",
+    Default = false,
+    Callback = function(state)
+        soulEspEnabled = state
+        if state then
+            updateSoulESP()
+        else
+            clearSoulESP()
         end
     end
 })
