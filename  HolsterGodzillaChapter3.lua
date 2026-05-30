@@ -417,6 +417,38 @@ local function disableNightVision()
     end)
 end
 
+local noclipEnabled = false
+local noclipConnection = nil
+
+local function setNoclip(enabled)
+    if enabled then
+        if noclipConnection then return end
+        noclipConnection = RunService.Stepped:Connect(function()
+            local char = player.Character
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        if noclipConnection then
+            noclipConnection:Disconnect()
+            noclipConnection = nil
+        end
+        local char = player.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+end
+
 Tabs.Main:AddButton({
     Title = "一键吃豆",
     Callback = function()
@@ -504,6 +536,15 @@ Tabs.Main:AddToggle("NightVision", {
     Default = false,
     Callback = function(state)
         if state then enableNightVision() else disableNightVision() end
+    end
+})
+
+Tabs.Main:AddToggle("NoClip", {
+    Title = "穿墙",
+    Default = false,
+    Callback = function(state)
+        noclipEnabled = state
+        setNoclip(state)
     end
 })
 
