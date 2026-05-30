@@ -3,7 +3,7 @@ local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/d
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "哥斯拉皮套Hub - 第3章",
+    Title = "哥斯拉皮套Hub - 第2章",
     SubTitle = "by.小梦",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 360),
