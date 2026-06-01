@@ -449,6 +449,53 @@ local function setNoclip(enabled)
     end
 end
 
+local function stripTouchTransmitters(part)
+    for _, child in ipairs(part:GetChildren()) do
+        if child:IsA("TouchTransmitter") then
+            child:Destroy()
+        end
+    end
+end
+
+local function processModel(model)
+    for _, part in ipairs(model:GetDescendants()) do
+        if part:IsA("BasePart") then
+            stripTouchTransmitters(part)
+        end
+    end
+end
+
+local ignoreMonsterConnection = nil
+
+Tabs.Main:AddToggle("IgnoreMonster", {
+    Title = "无视怪物",
+    Default = false,
+    Callback = function(state)
+        if state then
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("BasePart") then
+                    stripTouchTransmitters(obj)
+                elseif obj:IsA("Model") then
+                    processModel(obj)
+                end
+            end
+            ignoreMonsterConnection = workspace.DescendantAdded:Connect(function(desc)
+                if desc:IsA("BasePart") then
+                    stripTouchTransmitters(desc)
+                elseif desc:IsA("Model") then
+                    task.wait(0.1)
+                    processModel(desc)
+                end
+            end)
+        else
+            if ignoreMonsterConnection then
+                ignoreMonsterConnection:Disconnect()
+                ignoreMonsterConnection = nil
+            end
+        end
+    end
+})
+
 Tabs.Main:AddButton({
     Title = "一键吃豆",
     Callback = function()
