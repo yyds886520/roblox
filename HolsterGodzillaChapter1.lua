@@ -98,7 +98,6 @@ local safeZonePosition = Vector3.new(-171.49, -451.59, -153.56)
 local generatorRoomPosition = Vector3.new(-12.83, -9.90, -143.77)
 local spawnPosition = Vector3.new(-6.98, -9.84, -0.95)
 
--- ==================== 怪物透视（高亮轮廓） ====================
 local monsterEspEnabled = false
 local monsterHighlights = {}
 local screenDistanceLabel
@@ -221,7 +220,6 @@ Tabs.ESP:AddToggle("EnableMonsterESP", {
     end
 })
 
--- ==================== 传送点 ====================
 Tabs.Teleport:AddButton({
     Title = "传送安全区",
     Callback = function()
@@ -255,7 +253,53 @@ Tabs.Teleport:AddButton({
     end
 })
 
--- ==================== 半自动收集报纸 ====================
+local function stripTouchTransmitters(part)
+    for _, child in ipairs(part:GetChildren()) do
+        if child:IsA("TouchTransmitter") then
+            child:Destroy()
+        end
+    end
+end
+
+local function processModel(model)
+    for _, part in ipairs(model:GetDescendants()) do
+        if part:IsA("BasePart") then
+            stripTouchTransmitters(part)
+        end
+    end
+end
+
+local ignoreMonsterConnection = nil
+
+Tabs.Main:AddToggle("IgnoreMonster", {
+    Title = "无视怪物",
+    Default = false,
+    Callback = function(state)
+        if state then
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("BasePart") then
+                    stripTouchTransmitters(obj)
+                elseif obj:IsA("Model") then
+                    processModel(obj)
+                end
+            end
+            ignoreMonsterConnection = workspace.DescendantAdded:Connect(function(desc)
+                if desc:IsA("BasePart") then
+                    stripTouchTransmitters(desc)
+                elseif desc:IsA("Model") then
+                    task.wait(0.1)
+                    processModel(desc)
+                end
+            end)
+        else
+            if ignoreMonsterConnection then
+                ignoreMonsterConnection:Disconnect()
+                ignoreMonsterConnection = nil
+            end
+        end
+    end
+})
+
 Tabs.Main:AddButton({
     Title = "半自动收集报纸",
     Callback = function()
@@ -318,7 +362,6 @@ Tabs.Main:AddButton({
     end
 })
 
--- ==================== 自动逃生 ====================
 local autoEscapeEnabled = false
 
 Tabs.Main:AddToggle("AutoEscape", {
@@ -358,7 +401,6 @@ Tabs.Main:AddToggle("AutoEscape", {
     end
 })
 
--- ==================== 自动降低焦虑（智能版） ====================
 local autoLowerAnxietyEnabled = false
 local monitorPrompt = nil
 local holdThread = nil
@@ -450,7 +492,6 @@ Tabs.Main:AddToggle("AutoLowerAnxiety", {
     end
 })
 
--- ==================== 远程修电 ====================
 local repairActive = false
 
 local function findGeneratorPrompt()
@@ -518,7 +559,6 @@ Tabs.Main:AddToggle("AutoRepair", {
     end
 })
 
--- ==================== 显示电量 ====================
 local batteryDisplayGui = nil
 local batteryLabelGlobal = nil
 
