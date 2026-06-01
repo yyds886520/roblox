@@ -96,36 +96,15 @@ local monsterEspEnabled = false
 local monsterHighlights = {}
 local screenDistanceLabel
 
-local monsterPaths = {
-    { path = {"kit", "Jaguar"}, name = "美洲豹" },
-    { path = {"kit", "Lunchlady"}, name = "午餐女士" },
-    { path = {"kit", "ShadowGrin"}, name = "暗影狞笑" },
-    { path = {"kit", "Soul_AI"}, name = "灵魂AI" },
+local monsterNames = {
+    ["Jaguar"] = "美洲豹",
+    ["Lunchlady"] = "午餐女士",
+    ["ShadowGrin"] = "暗影狞笑",
+    ["Soul_AI"] = "灵魂AI",
 }
 
-local function getDynamicMonster()
-    local kit = workspace:FindFirstChild("kit")
-    if kit then
-        local children = kit:GetChildren()
-        local target = children[7]
-        if target and target:IsA("Model") then
-            return target, target.Name
-        end
-    end
-    return nil, nil
-end
-
-local function isModelTracked(model)
-    for _, data in ipairs(monsterPaths) do
-        local m = workspace:FindFirstChild(data.path[1])
-        for i = 2, #data.path do
-            m = m and m:FindFirstChild(data.path[i])
-        end
-        if m == model then
-            return true
-        end
-    end
-    return false
+local function getDisplayName(modelName)
+    return monsterNames[modelName] or modelName
 end
 
 local function createScreenGui()
@@ -159,7 +138,7 @@ local function updateScreenDistances(distances)
     if not screenDistanceLabel then return end
     local parts = {}
     for name, dist in pairs(distances) do
-        table.insert(parts, name .. ": " .. string.format("%.1fm", dist))
+        table.insert(parts, name .. ": " .. string.format("%.1f米", dist))
     end
     if #parts == 0 then
         screenDistanceLabel.Text = "无怪物"
@@ -171,6 +150,8 @@ end
 
 local function createMonsterHighlight(model)
     if monsterHighlights[model] then return end
+    local hrp = model:FindFirstChild("HumanoidRootPart", true)
+    if not hrp then return end
     local highlight = Instance.new("Highlight")
     highlight.Name = "MonsterOutline"
     highlight.FillTransparency = 1
@@ -187,55 +168,30 @@ local function removeMonsterHighlight(model)
     end
 end
 
-local function findMonsterByPath(pathTable)
-    local current = workspace
-    for _, name in ipairs(pathTable) do
-        current = current:FindFirstChild(name)
-        if not current then return nil end
-    end
-    if current:IsA("Model") then return current end
-    return nil
-end
-
 local function updateMonsterESP()
     task.spawn(function()
         while monsterEspEnabled do
             local char = player.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
+            local kitFolder = workspace:FindFirstChild("kit")
             local distances = {}
 
-            for _, target in ipairs(monsterPaths) do
-                local model = findMonsterByPath(target.path)
-                if model and model:IsA("Model") then
-                    local hum = model:FindFirstChild("Humanoid")
-                    local hrp = model:FindFirstChild("HumanoidRootPart")
-                    if hum and hum.Health > 0 and hrp then
-                        if not monsterHighlights[model] then
-                            createMonsterHighlight(model)
-                        end
-                        if root then
-                            local dist = (hrp.Position - root.Position).Magnitude
-                            if not distances[target.name] or dist < distances[target.name] then
-                                distances[target.name] = dist
+            if kitFolder then
+                for _, model in ipairs(kitFolder:GetChildren()) do
+                    if model:IsA("Model") then
+                        local hum = model:FindFirstChild("Humanoid")
+                        local hrp = model:FindFirstChild("HumanoidRootPart", true)
+                        if hum and hum.Health > 0 and hrp then
+                            if not monsterHighlights[model] then
+                                createMonsterHighlight(model)
                             end
-                        end
-                    end
-                end
-            end
-
-            local dynModel, dynName = getDynamicMonster()
-            if dynModel and not isModelTracked(dynModel) then
-                local hum = dynModel:FindFirstChild("Humanoid")
-                local hrp = dynModel:FindFirstChild("HumanoidRootPart")
-                if hum and hum.Health > 0 and hrp then
-                    if not monsterHighlights[dynModel] then
-                        createMonsterHighlight(dynModel)
-                    end
-                    if root then
-                        local dist = (hrp.Position - root.Position).Magnitude
-                        local displayName = "第7怪物(" .. dynName .. ")"
-                        if not distances[displayName] or dist < distances[displayName] then
-                            distances[displayName] = dist
+                            if root then
+                                local dist = (hrp.Position - root.Position).Magnitude
+                                local displayName = getDisplayName(model.Name)
+                                if not distances[displayName] or dist < distances[displayName] then
+                                    distances[displayName] = dist
+                                end
+                            end
                         end
                     end
                 end
@@ -245,7 +201,7 @@ local function updateMonsterESP()
 
             for model, _ in pairs(monsterHighlights) do
                 local hum = model:FindFirstChild("Humanoid")
-                if not hum or hum.Health <= 0 or not model:FindFirstChild("HumanoidRootPart") or not model.Parent then
+                if not hum or hum.Health <= 0 or not model:FindFirstChild("HumanoidRootPart", true) or not model.Parent then
                     removeMonsterHighlight(model)
                 end
             end
@@ -417,51 +373,20 @@ local function disableNightVision()
     end)
 end
 
-local noclipEnabled = false
-local noclipConnection = nil
-
-local function setNoclip(enabled)
-    if enabled then
-        if noclipConnection then return end
-        noclipConnection = RunService.Stepped:Connect(function()
-            local char = player.Character
-            if char then
-                for _, part in ipairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
-                end
-            end
-        end)
-    else
-        if noclipConnection then
-            noclipConnection:Disconnect()
-            noclipConnection = nil
-        end
-        local char = player.Character
-        if char then
-            for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
-                end
+local function disableMonsterPart(part)
+    if part:IsA("BasePart") then
+        part.CanCollide = false
+        for _, child in ipairs(part:GetChildren()) do
+            if child:IsA("TouchTransmitter") then
+                child:Destroy()
             end
         end
     end
 end
 
-local function stripTouchTransmitters(part)
-    for _, child in ipairs(part:GetChildren()) do
-        if child:IsA("TouchTransmitter") then
-            child:Destroy()
-        end
-    end
-end
-
-local function processModel(model)
+local function processMonsterModel(model)
     for _, part in ipairs(model:GetDescendants()) do
-        if part:IsA("BasePart") then
-            stripTouchTransmitters(part)
-        end
+        disableMonsterPart(part)
     end
 end
 
@@ -469,24 +394,32 @@ local ignoreMonsterConnection = nil
 
 Tabs.Main:AddToggle("IgnoreMonster", {
     Title = "无视怪物",
+    Description = "吃豆时记得关闭",
     Default = false,
     Callback = function(state)
+        local kitFolder = workspace:FindFirstChild("kit")
         if state then
-            for _, obj in ipairs(workspace:GetDescendants()) do
-                if obj:IsA("BasePart") then
-                    stripTouchTransmitters(obj)
-                elseif obj:IsA("Model") then
-                    processModel(obj)
+            if kitFolder then
+                for _, obj in ipairs(kitFolder:GetDescendants()) do
+                    if obj:IsA("BasePart") then
+                        disableMonsterPart(obj)
+                    elseif obj:IsA("Model") then
+                        processMonsterModel(obj)
+                    elseif obj:IsA("TouchTransmitter") then
+                        obj:Destroy()
+                    end
                 end
+                ignoreMonsterConnection = kitFolder.DescendantAdded:Connect(function(desc)
+                    if desc:IsA("BasePart") then
+                        disableMonsterPart(desc)
+                    elseif desc:IsA("Model") then
+                        task.wait(0.1)
+                        processMonsterModel(desc)
+                    elseif desc:IsA("TouchTransmitter") then
+                        desc:Destroy()
+                    end
+                end)
             end
-            ignoreMonsterConnection = workspace.DescendantAdded:Connect(function(desc)
-                if desc:IsA("BasePart") then
-                    stripTouchTransmitters(desc)
-                elseif desc:IsA("Model") then
-                    task.wait(0.1)
-                    processModel(desc)
-                end
-            end)
         else
             if ignoreMonsterConnection then
                 ignoreMonsterConnection:Disconnect()
@@ -586,15 +519,6 @@ Tabs.Main:AddToggle("NightVision", {
     end
 })
 
-Tabs.Main:AddToggle("NoClip", {
-    Title = "穿墙",
-    Default = false,
-    Callback = function(state)
-        noclipEnabled = state
-        setNoclip(state)
-    end
-})
-
 local garagePosition = Vector3.new(2201.70, -22.72, -1950.17)
 
 Tabs.Teleport:AddButton({
@@ -655,7 +579,7 @@ InterfaceManager:SetLibrary(Fluent)
 SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({})
 InterfaceManager:SetFolder("FluentScriptHub")
-SaveManager:SetFolder("FluentScriptHub/godzilla-chapter3")
+SaveManager:SetFolder("FluentScriptHub/godzilla-chapter2")
 InterfaceManager:BuildInterfaceSection(Tabs.Other)
 SaveManager:BuildConfigSection(Tabs.Other)
 
