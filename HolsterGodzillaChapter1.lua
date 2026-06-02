@@ -91,7 +91,6 @@ end
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
-local uis = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local safeZonePosition = Vector3.new(-171.49, -451.59, -153.56)
@@ -253,49 +252,43 @@ Tabs.Teleport:AddButton({
     end
 })
 
-local function stripTouchTransmitters(part)
-    for _, child in ipairs(part:GetChildren()) do
-        if child:IsA("TouchTransmitter") then
-            child:Destroy()
-        end
-    end
-end
-
-local function processModel(model)
-    for _, part in ipairs(model:GetDescendants()) do
-        if part:IsA("BasePart") then
-            stripTouchTransmitters(part)
-        end
-    end
-end
-
-local ignoreMonsterConnection = nil
-
-Tabs.Main:AddToggle("IgnoreMonster", {
-    Title = "无视怪物",
-    Default = false,
-    Callback = function(state)
-        if state then
+Tabs.Teleport:AddButton({
+    Title = "传送到逃生门",
+    Callback = function()
+        local function findEscapeDoor()
             for _, obj in ipairs(workspace:GetDescendants()) do
-                if obj:IsA("BasePart") then
-                    stripTouchTransmitters(obj)
-                elseif obj:IsA("Model") then
-                    processModel(obj)
+                if obj:IsA("BasePart") and obj.Name == "EscapeDoor" then
+                    for _, child in ipairs(obj:GetChildren()) do
+                        if child:IsA("TouchTransmitter") then
+                            return obj
+                        end
+                    end
+                elseif obj:IsA("Model") and obj.Name == "EscapeDoor" then
+                    local part = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                    if part then
+                        for _, child in ipairs(part:GetChildren()) do
+                            if child:IsA("TouchTransmitter") then
+                                return part
+                            end
+                        end
+                    end
                 end
             end
-            ignoreMonsterConnection = workspace.DescendantAdded:Connect(function(desc)
-                if desc:IsA("BasePart") then
-                    stripTouchTransmitters(desc)
-                elseif desc:IsA("Model") then
-                    task.wait(0.1)
-                    processModel(desc)
-                end
-            end)
+            return nil
+        end
+
+        local targetPart = findEscapeDoor()
+        if not targetPart then
+            Fluent:Notify({ Title = "未触发", Content = "还未触发逃生门，请您尽快收集报纸", Duration = 3 })
+            return
+        end
+
+        local char = player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            char.HumanoidRootPart.CFrame = CFrame.new(targetPart.Position + Vector3.new(0, 2, 0))
+            Fluent:Notify({ Title = "传送", Content = "已传送到逃生门", Duration = 2 })
         else
-            if ignoreMonsterConnection then
-                ignoreMonsterConnection:Disconnect()
-                ignoreMonsterConnection = nil
-            end
+            Fluent:Notify({ Title = "传送失败", Content = "角色未加载", Duration = 2 })
         end
     end
 })
@@ -403,11 +396,9 @@ Tabs.Main:AddToggle("AutoEscape", {
 
 local autoLowerAnxietyEnabled = false
 local monitorPrompt = nil
-local holdThread = nil
 local reduceThread = nil
 
 local function stopAnxietyControl()
-    if holdThread then task.cancel(holdThread) holdThread = nil end
     if reduceThread then task.cancel(reduceThread) reduceThread = nil end
     if monitorPrompt then
         pcall(function()
@@ -617,6 +608,109 @@ Tabs.Main:AddToggle("ShowBattery", {
                 batteryUpdateConnection = nil
             end
             destroyBatteryDisplay()
+        end
+    end
+})
+
+local daylightEnabled = false
+local daylightLoopThread = nil
+
+local function setBrightLighting()
+    pcall(function()
+        local lighting = game:GetService("Lighting")
+        lighting.Brightness = 2
+        lighting.ClockTime = 14
+        lighting.FogEnd = 100000
+        lighting.FogStart = 0
+        lighting.GlobalShadows = false
+        lighting.Outlines = true
+        lighting.EnvironmentSpecularScale = 1
+        lighting.EnvironmentDiffuseScale = 1
+    end)
+end
+
+local function destroyPostEffects()
+    local effects = {"BlurEffect","BloomEffect","DepthOfFieldEffect","ColorCorrectionEffect","SunRaysEffect","Atmosphere"}
+    for _, container in ipairs({game:GetService("Lighting"), workspace.CurrentCamera, workspace}) do
+        if container then
+            for _, obj in ipairs(container:GetDescendants()) do
+                for _, ef in ipairs(effects) do
+                    if obj:IsA(ef) then
+                        obj:Destroy()
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function destroyNoiseUI()
+    local noiseKeys = {"tvLines","Static","Noise","Grain","Scanline","CRT","VHS","nightVision","Vignette","Fade","flash","Gradient"}
+    local playerGui = player:FindFirstChild("PlayerGui")
+    if not playerGui then return end
+    for _, gui in ipairs(playerGui:GetChildren()) do
+        if gui:IsA("ScreenGui") or gui:IsA("LayerCollector") then
+            for _, obj in ipairs(gui:GetDescendants()) do
+                if obj:IsA("ImageLabel") or obj:IsA("Frame") then
+                    local nameLower = obj.Name:lower()
+                    for _, key in ipairs(noiseKeys) do
+                        if nameLower:find(key:lower()) then
+                            obj:Destroy()
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function destroyRedOverlay()
+    local playerGui = player:FindFirstChild("PlayerGui")
+    if not playerGui then return end
+    for _, gui in ipairs(playerGui:GetChildren()) do
+        if gui:IsA("ScreenGui") or gui:IsA("LayerCollector") then
+            for _, obj in ipairs(gui:GetDescendants()) do
+                if (obj:IsA("Frame") or obj:IsA("ImageLabel")) and obj.Size == UDim2.new(1,0,1,0) then
+                    local color = obj:IsA("Frame") and obj.BackgroundColor3 or obj:IsA("ImageLabel") and obj.ImageColor3
+                    local trans = obj:IsA("Frame") and obj.BackgroundTransparency or obj.ImageTransparency
+                    if color and trans < 1 and (color.r > 0.7 or color.r > color.g + 0.3) and obj.Visible then
+                        obj:Destroy()
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function daylightCleanup()
+    setBrightLighting()
+    destroyPostEffects()
+    destroyNoiseUI()
+    destroyRedOverlay()
+end
+
+Tabs.Main:AddToggle("Daylight", {
+    Title = "天亮",
+    Description = "没有黑暗 只有光明",
+    Default = false,
+    Callback = function(state)
+        daylightEnabled = state
+        if state then
+            daylightCleanup()
+            daylightLoopThread = task.spawn(function()
+                while daylightEnabled do
+                    daylightCleanup()
+                    task.wait(2)
+                end
+            end)
+            Fluent:Notify({ Title = "天亮", Content = "画面已净化", Duration = 2 })
+        else
+            if daylightLoopThread then
+                task.cancel(daylightLoopThread)
+                daylightLoopThread = nil
+            end
+            Fluent:Notify({ Title = "天亮", Content = "已关闭", Duration = 2 })
         end
     end
 })
