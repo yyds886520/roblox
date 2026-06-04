@@ -18,6 +18,7 @@ local Tabs = {
     Main = Window:AddTab({ Title = "主要", Icon = "box" }),
     ESP = Window:AddTab({ Title = "透视", Icon = "eye" }),
     Teleport = Window:AddTab({ Title = "传送", Icon = "map-pin" }),
+    Fun = Window:AddTab({ Title = "娱乐", Icon = "gamepad" }),
     Other = Window:AddTab({ Title = "其他", Icon = "settings" })
 }
 
@@ -91,6 +92,7 @@ end
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 
 local safeZonePosition = Vector3.new(-142.55, -450.12 + 3, 2303.20)
 local chapter2Spawn = Vector3.new(291.00, 17.83 + 3, 2405.50)
@@ -351,7 +353,7 @@ end
 local daylightEnabled = false
 local daylightLoopThread = nil
 
-local function setBrightLighting()
+local function daylightCleanup()
     pcall(function()
         local lighting = game:GetService("Lighting")
         lighting.Brightness = 2
@@ -359,15 +361,9 @@ local function setBrightLighting()
         lighting.FogEnd = 100000
         lighting.FogStart = 0
         lighting.GlobalShadows = false
-        lighting.Outlines = true
-        lighting.EnvironmentSpecularScale = 1
-        lighting.EnvironmentDiffuseScale = 1
     end)
-end
-
-local function destroyPostEffects()
     local effects = {"BlurEffect","BloomEffect","DepthOfFieldEffect","ColorCorrectionEffect","SunRaysEffect","Atmosphere"}
-    for _, container in ipairs({game:GetService("Lighting"), workspace.CurrentCamera, workspace}) do
+    for _, container in ipairs({game:GetService("Lighting"), workspace.CurrentCamera}) do
         if container then
             for _, obj in ipairs(container:GetDescendants()) do
                 for _, ef in ipairs(effects) do
@@ -378,52 +374,21 @@ local function destroyPostEffects()
             end
         end
     end
-end
-
-local function destroyNoiseUI()
-    local noiseKeys = {"tvLines","Static","Noise","Grain","Scanline","CRT","VHS","nightVision","Vignette","Fade","flash","Gradient"}
-    local playerGui = player:FindFirstChild("PlayerGui")
-    if not playerGui then return end
-    for _, gui in ipairs(playerGui:GetChildren()) do
-        if gui:IsA("ScreenGui") or gui:IsA("LayerCollector") then
-            for _, obj in ipairs(gui:GetDescendants()) do
-                if obj:IsA("ImageLabel") or obj:IsA("Frame") then
-                    local nameLower = obj.Name:lower()
-                    for _, key in ipairs(noiseKeys) do
-                        if nameLower:find(key:lower()) then
-                            obj:Destroy()
-                            break
+    local noiseKeys = {"tvLines","Static","Noise","Grain","Scanline","CRT","VHS","nightVision","Vignette"}
+    if playerGui then
+        for _, gui in ipairs(playerGui:GetChildren()) do
+            if gui:IsA("ScreenGui") then
+                for _, obj in ipairs(gui:GetDescendants()) do
+                    if obj:IsA("ImageLabel") or obj:IsA("Frame") then
+                        local n = obj.Name:lower()
+                        for _, k in ipairs(noiseKeys) do
+                            if n:find(k:lower()) then obj:Destroy(); break end
                         end
                     end
                 end
             end
         end
     end
-end
-
-local function destroyRedOverlay()
-    local playerGui = player:FindFirstChild("PlayerGui")
-    if not playerGui then return end
-    for _, gui in ipairs(playerGui:GetChildren()) do
-        if gui:IsA("ScreenGui") or gui:IsA("LayerCollector") then
-            for _, obj in ipairs(gui:GetDescendants()) do
-                if (obj:IsA("Frame") or obj:IsA("ImageLabel")) and obj.Size == UDim2.new(1,0,1,0) then
-                    local color = obj:IsA("Frame") and obj.BackgroundColor3 or obj:IsA("ImageLabel") and obj.ImageColor3
-                    local trans = obj:IsA("Frame") and obj.BackgroundTransparency or obj.ImageTransparency
-                    if color and trans < 1 and (color.r > 0.7 or color.r > color.g + 0.3) and obj.Visible then
-                        obj:Destroy()
-                    end
-                end
-            end
-        end
-    end
-end
-
-local function daylightCleanup()
-    setBrightLighting()
-    destroyPostEffects()
-    destroyNoiseUI()
-    destroyRedOverlay()
 end
 
 Tabs.Main:AddToggle("Daylight", {
@@ -451,39 +416,118 @@ Tabs.Main:AddToggle("Daylight", {
     end
 })
 
-local autoEscapeEnabled = false
+Tabs.Main:AddButton({
+    Title = "一键通关",
+    Callback = function()
+        local char = player.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then
+            Fluent:Notify({ Title = "失败", Content = "角色未加载", Duration = 2 })
+            return
+        end
+        local root = char.HumanoidRootPart
+        local camera = workspace.CurrentCamera
 
-Tabs.Main:AddToggle("AutoEscape", {
-    Title = "自动逃生",
-    Description = "怪物靠近25米时自动传送到安全区",
-    Default = false,
-    Callback = function(state)
-        autoEscapeEnabled = state
-        if state then
-            task.spawn(function()
-                while autoEscapeEnabled do
-                    local char = player.Character
-                    if char and char:FindFirstChild("HumanoidRootPart") then
-                        local root = char.HumanoidRootPart
-                        local kitFolder = workspace:FindFirstChild("kit")
-                        if kitFolder then
-                            for _, model in ipairs(kitFolder:GetChildren()) do
-                                if model:IsA("Model") then
-                                    local hrp = model:FindFirstChild("HumanoidRootPart", true)
-                                    if hrp and (hrp.Position - root.Position).Magnitude < 25 then
-                                        pcall(function()
-                                            root.CFrame = CFrame.new(safeZonePosition)
-                                        end)
-                                        Fluent:Notify({ Title = "自动逃生", Content = "怪物接近！已传送到安全区", Duration = 2 })
-                                        break
-                                    end
-                                end
+        Fluent:Notify({ Title = "一键通关", Content = "正在传送到通关区域...", Duration = 2 })
+
+        local preTargetPos = Vector3.new(-299.10, -9.44, 2196.05)
+        root.CFrame = CFrame.new(preTargetPos)
+        Fluent:Notify({ Title = "一键通关", Content = "已传送，等待场景加载...", Duration = 2 })
+        task.wait(3)
+
+        local prompt = nil
+        local promptPart = nil
+        local waited = 0
+        local maxWait = 15
+
+        while waited < maxWait do
+            local endingScene = workspace:FindFirstChild("EndingScene")
+            if endingScene then
+                local theSea = endingScene:FindFirstChild("TheSea")
+                if theSea then
+                    local basilosaurus = theSea:FindFirstChild("Basilosaurus")
+                    if basilosaurus then
+                        promptPart = basilosaurus:FindFirstChild("Part")
+                        if promptPart then
+                            prompt = promptPart:FindFirstChild("ProximityPrompt")
+                            if prompt then
+                                break
                             end
                         end
                     end
-                    task.wait(0.3)
                 end
-            end)
+            end
+            task.wait(0.5)
+            waited = waited + 0.5
+        end
+
+        if not prompt or not promptPart then
+            Fluent:Notify({ Title = "失败", Content = "等待超时，未找到通关按钮", Duration = 3 })
+            return
+        end
+
+        local lookDir = (promptPart.Position - root.Position).Unit
+        local targetPos = promptPart.Position - lookDir * 3
+        root.CFrame = CFrame.new(targetPos, promptPart.Position)
+
+        Fluent:Notify({ Title = "一键通关", Content = "已定位按钮，正在触发动画...", Duration = 1 })
+
+        local oldCameraType = camera.CameraType
+        camera.CameraType = Enum.CameraType.Scriptable
+        local cameraLockThread = task.spawn(function()
+            while true do
+                if root and promptPart then
+                    camera.CFrame = CFrame.new(root.Position + Vector3.new(0, 1.5, 0), promptPart.Position)
+                end
+                task.wait()
+            end
+        end)
+
+        pcall(function() prompt.HoldDuration = 0 end)
+        task.wait(0.3)
+        pcall(function() prompt:InputHoldBegin() end)
+        task.wait(0.05)
+        pcall(function() prompt:InputHoldEnd() end)
+
+        Fluent:Notify({ Title = "一键通关", Content = "结局动画已触发", Duration = 2 })
+
+        task.wait(0.5)
+        camera.CameraType = oldCameraType
+        if cameraLockThread then task.cancel(cameraLockThread) end
+
+        Fluent:Notify({ Title = "一键通关", Content = "等待返回大厅...", Duration = 2 })
+
+        local returnTriggered = false
+        for i = 1, 200 do
+            if not returnTriggered then
+                local endingGui = playerGui:FindFirstChild("EndingGui")
+                if endingGui then
+                    local buttonFrame = endingGui:FindFirstChild("ButtonFrame")
+                    if buttonFrame then
+                        local returnBtn = buttonFrame:FindFirstChild("TextButton")
+                        if returnBtn then
+                            for _, conn in ipairs(getconnections(returnBtn.Activated)) do
+                                pcall(conn.Function)
+                                returnTriggered = true
+                            end
+                            if not returnTriggered then
+                                for _, conn in ipairs(getconnections(returnBtn.MouseButton1Click)) do
+                                    pcall(conn.Function)
+                                    returnTriggered = true
+                                end
+                            end
+                            if returnTriggered then
+                                Fluent:Notify({ Title = "一键通关", Content = "已自动返回大厅，通关完成", Duration = 3 })
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+            task.wait(0.1)
+        end
+
+        if not returnTriggered then
+            Fluent:Notify({ Title = "警告", Content = "返回大厅按钮未出现，请手动点击", Duration = 3 })
         end
     end
 })
@@ -652,6 +696,54 @@ Tabs.Teleport:AddButton({
         else
             Fluent:Notify({ Title = "传送失败", Content = "角色未加载", Duration = 2 })
         end
+    end
+})
+
+Tabs.Fun:AddButton({
+    Title = "惊喜",
+    Callback = function()
+        local char = player.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then
+            Fluent:Notify({ Title = "失败", Content = "角色未加载", Duration = 2 })
+            return
+        end
+        local root = char.HumanoidRootPart
+
+        local kitFolder = workspace:FindFirstChild("kit")
+        if not kitFolder then
+            Fluent:Notify({ Title = "惊喜", Content = "kit文件夹不存在", Duration = 2 })
+            return
+        end
+
+        local closestModel = nil
+        local closestDist = math.huge
+        local closestHRP = nil
+
+        for _, model in ipairs(kitFolder:GetChildren()) do
+            if model:IsA("Model") then
+                local hrp = model:FindFirstChild("HumanoidRootPart", true)
+                if hrp then
+                    local dist = (hrp.Position - root.Position).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closestModel = model
+                        closestHRP = hrp
+                    end
+                end
+            end
+        end
+
+        if not closestHRP then
+            Fluent:Notify({ Title = "惊喜", Content = "再执行一遍", Duration = 2 })
+            return
+        end
+
+        local lookDir = closestHRP.CFrame.LookVector
+        local targetPos = closestHRP.Position + lookDir * 8
+
+        root.CFrame = CFrame.new(targetPos, closestHRP.Position)
+
+        Fluent:Notify({ Title = "惊喜", Content = "哈哈哈，吓到了吧？", Duration = 2 })
     end
 })
 
