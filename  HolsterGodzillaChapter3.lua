@@ -18,7 +18,6 @@ local Tabs = {
     Main = Window:AddTab({ Title = "主要", Icon = "box" }),
     ESP = Window:AddTab({ Title = "透视", Icon = "eye" }),
     Teleport = Window:AddTab({ Title = "传送", Icon = "map-pin" }),
-    Fun = Window:AddTab({ Title = "娱乐", Icon = "gamepad" }),
     Other = Window:AddTab({ Title = "其他", Icon = "settings" })
 }
 
@@ -533,6 +532,193 @@ Tabs.Main:AddButton({
 })
 
 Tabs.Main:AddButton({
+    Title = "解锁肯奇·福地莫托角色",
+    Callback = function()
+        Window:Dialog({
+            Title = "重要提醒",
+            Content = "请确保已经到达第2关！如果还在第1关就点确定，可能会掉进虚空摔死。确定要继续吗？",
+            Buttons = {
+                {
+                    Title = "确定",
+                    Callback = function()
+                        local char = player.Character
+                        if not char or not char:FindFirstChild("HumanoidRootPart") then
+                            Fluent:Notify({ Title = "失败", Content = "角色未加载", Duration = 2 })
+                            return
+                        end
+                        local root = char.HumanoidRootPart
+                        local camera = workspace.CurrentCamera
+
+                        -- 第一步：传送到武士刀并互动
+                        Fluent:Notify({ Title = "解锁角色", Content = "正在寻找武士刀...", Duration = 2 })
+
+                        local katanaPart = nil
+                        local katanaPrompt = nil
+                        local waited = 0
+                        local maxWait = 10
+
+                        while waited < maxWait do
+                            local katanasFolder = workspace.Map and workspace.Map:FindFirstChild("Katanas")
+                            if katanasFolder then
+                                katanaPart = katanasFolder:FindFirstChild("Katana")
+                                if katanaPart and katanaPart:IsA("BasePart") then
+                                    katanaPrompt = katanaPart:FindFirstChild("ProximityPrompt")
+                                    if katanaPrompt then
+                                        break
+                                    end
+                                end
+                            end
+                            task.wait(0.3)
+                            waited = waited + 0.3
+                        end
+
+                        if not katanaPart or not katanaPrompt then
+                            Fluent:Notify({ Title = "失败", Content = "未找到武士刀，请确保已进入第2关", Duration = 3 })
+                            return
+                        end
+
+                        local katanaPos = katanaPart.Position
+                        local lookDir = (katanaPos - root.Position).Unit
+                        local targetPos = katanaPos - lookDir * 3
+                        root.CFrame = CFrame.new(targetPos, katanaPos)
+
+                        Fluent:Notify({ Title = "解锁角色", Content = "正在获取武士刀...", Duration = 1 })
+
+                        local oldCameraType = camera.CameraType
+                        camera.CameraType = Enum.CameraType.Scriptable
+                        local cameraLockThread = task.spawn(function()
+                            while true do
+                                if root and katanaPart then
+                                    camera.CFrame = CFrame.new(root.Position + Vector3.new(0, 1.5, 0), katanaPos)
+                                end
+                                task.wait()
+                            end
+                        end)
+
+                        pcall(function() katanaPrompt.HoldDuration = 0 end)
+                        task.wait(0.3)
+                        pcall(function() katanaPrompt:InputHoldBegin() end)
+                        task.wait(0.05)
+                        pcall(function() katanaPrompt:InputHoldEnd() end)
+
+                        Fluent:Notify({ Title = "解锁角色", Content = "武士刀获取成功，准备通关！", Duration = 2 })
+
+                        task.wait(0.5)
+                        camera.CameraType = oldCameraType
+                        if cameraLockThread then task.cancel(cameraLockThread) end
+
+                        -- 第二步：传送到通关区域并触发通关
+                        Fluent:Notify({ Title = "解锁角色", Content = "正在传送到通关区域...", Duration = 2 })
+
+                        local preTargetPos = Vector3.new(-299.10, -9.44, 2196.05)
+                        root.CFrame = CFrame.new(preTargetPos)
+                        Fluent:Notify({ Title = "解锁角色", Content = "已传送，等待场景加载...", Duration = 2 })
+                        task.wait(3)
+
+                        local prompt = nil
+                        local promptPart = nil
+                        waited = 0
+                        maxWait = 15
+
+                        while waited < maxWait do
+                            local endingScene = workspace:FindFirstChild("EndingScene")
+                            if endingScene then
+                                local theSea = endingScene:FindFirstChild("TheSea")
+                                if theSea then
+                                    local basilosaurus = theSea:FindFirstChild("Basilosaurus")
+                                    if basilosaurus then
+                                        promptPart = basilosaurus:FindFirstChild("Part")
+                                        if promptPart then
+                                            prompt = promptPart:FindFirstChild("ProximityPrompt")
+                                            if prompt then
+                                                break
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                            task.wait(0.5)
+                            waited = waited + 0.5
+                        end
+
+                        if not prompt or not promptPart then
+                            Fluent:Notify({ Title = "失败", Content = "等待超时，未找到通关按钮", Duration = 3 })
+                            return
+                        end
+
+                        lookDir = (promptPart.Position - root.Position).Unit
+                        targetPos = promptPart.Position - lookDir * 3
+                        root.CFrame = CFrame.new(targetPos, promptPart.Position)
+
+                        Fluent:Notify({ Title = "解锁角色", Content = "正在触发结局动画...", Duration = 1 })
+
+                        camera.CameraType = Enum.CameraType.Scriptable
+                        cameraLockThread = task.spawn(function()
+                            while true do
+                                if root and promptPart then
+                                    camera.CFrame = CFrame.new(root.Position + Vector3.new(0, 1.5, 0), promptPart.Position)
+                                end
+                                task.wait()
+                            end
+                        end)
+
+                        pcall(function() prompt.HoldDuration = 0 end)
+                        task.wait(0.3)
+                        pcall(function() prompt:InputHoldBegin() end)
+                        task.wait(0.05)
+                        pcall(function() prompt:InputHoldEnd() end)
+
+                        Fluent:Notify({ Title = "解锁角色", Content = "结局动画已触发，等待返回大厅...", Duration = 2 })
+
+                        task.wait(0.5)
+                        camera.CameraType = oldCameraType
+                        if cameraLockThread then task.cancel(cameraLockThread) end
+
+                        local returnTriggered = false
+                        for i = 1, 200 do
+                            if not returnTriggered then
+                                local endingGui = playerGui:FindFirstChild("EndingGui")
+                                if endingGui then
+                                    local buttonFrame = endingGui:FindFirstChild("ButtonFrame")
+                                    if buttonFrame then
+                                        local returnBtn = buttonFrame:FindFirstChild("TextButton")
+                                        if returnBtn then
+                                            for _, conn in ipairs(getconnections(returnBtn.Activated)) do
+                                                pcall(conn.Function)
+                                                returnTriggered = true
+                                            end
+                                            if not returnTriggered then
+                                                for _, conn in ipairs(getconnections(returnBtn.MouseButton1Click)) do
+                                                    pcall(conn.Function)
+                                                    returnTriggered = true
+                                                end
+                                            end
+                                            if returnTriggered then
+                                                Fluent:Notify({ Title = "解锁角色", Content = "已自动返回大厅，角色解锁成功！", Duration = 3 })
+                                                break
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                            task.wait(0.1)
+                        end
+
+                        if not returnTriggered then
+                            Fluent:Notify({ Title = "警告", Content = "返回大厅按钮未出现，请手动点击", Duration = 3 })
+                        end
+                    end
+                },
+                {
+                    Title = "取消",
+                    Callback = function() end
+                }
+            }
+        })
+    end
+})
+
+Tabs.Main:AddButton({
     Title = "一键吃豆",
     Callback = function()
         local char = player.Character
@@ -696,54 +882,6 @@ Tabs.Teleport:AddButton({
         else
             Fluent:Notify({ Title = "传送失败", Content = "角色未加载", Duration = 2 })
         end
-    end
-})
-
-Tabs.Fun:AddButton({
-    Title = "惊喜",
-    Callback = function()
-        local char = player.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then
-            Fluent:Notify({ Title = "失败", Content = "角色未加载", Duration = 2 })
-            return
-        end
-        local root = char.HumanoidRootPart
-
-        local kitFolder = workspace:FindFirstChild("kit")
-        if not kitFolder then
-            Fluent:Notify({ Title = "惊喜", Content = "kit文件夹不存在", Duration = 2 })
-            return
-        end
-
-        local closestModel = nil
-        local closestDist = math.huge
-        local closestHRP = nil
-
-        for _, model in ipairs(kitFolder:GetChildren()) do
-            if model:IsA("Model") then
-                local hrp = model:FindFirstChild("HumanoidRootPart", true)
-                if hrp then
-                    local dist = (hrp.Position - root.Position).Magnitude
-                    if dist < closestDist then
-                        closestDist = dist
-                        closestModel = model
-                        closestHRP = hrp
-                    end
-                end
-            end
-        end
-
-        if not closestHRP then
-            Fluent:Notify({ Title = "惊喜", Content = "再执行一遍", Duration = 2 })
-            return
-        end
-
-        local lookDir = closestHRP.CFrame.LookVector
-        local targetPos = closestHRP.Position + lookDir * 8
-
-        root.CFrame = CFrame.new(targetPos, closestHRP.Position)
-
-        Fluent:Notify({ Title = "惊喜", Content = "哈哈哈，吓到了吧？", Duration = 2 })
     end
 })
 
