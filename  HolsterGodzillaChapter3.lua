@@ -16,6 +16,7 @@ Window.Root.Visible = true
 
 local Tabs = {
     Main = Window:AddTab({ Title = "主要", Icon = "box" }),
+    Auto = Window:AddTab({ Title = "自动", Icon = "bot" }),
     ESP = Window:AddTab({ Title = "透视", Icon = "eye" }),
     Teleport = Window:AddTab({ Title = "传送", Icon = "map-pin" }),
     Other = Window:AddTab({ Title = "其他", Icon = "settings" })
@@ -92,11 +93,15 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+local replicatedStorage = game:GetService("ReplicatedStorage")
 
 local safeZonePosition = Vector3.new(-142.55, -450.12 + 3, 2303.20)
 local chapter2Spawn = Vector3.new(291.00, 17.83 + 3, 2405.50)
 local chapter1Spawn = Vector3.new(2099.25, -22.72 + 3, -1921.75)
 local garagePosition = Vector3.new(2201.70, -22.72 + 3, -1950.17)
+
+local katanaActivate = replicatedStorage:WaitForChild("ToolEvents"):WaitForChild("Katana"):WaitForChild("katana_activate")
+local katanaDeactivate = replicatedStorage:WaitForChild("ToolEvents"):WaitForChild("Katana"):WaitForChild("katana_deactivate")
 
 local monsterEspEnabled = false
 local monsterHighlights = {}
@@ -351,6 +356,7 @@ end
 
 local daylightEnabled = false
 local daylightLoopThread = nil
+local configLoaded = false
 
 local function daylightCleanup()
     pcall(function()
@@ -390,11 +396,89 @@ local function daylightCleanup()
     end
 end
 
+-- 强制隐身功能
+local forceInvisEnabled = false
+local invisHeartbeat = nil
+local invisTag = nil
+
+local function ensureInvisTag()
+    local char = player.Character
+    if not char then return nil end
+    local existing = char:FindFirstChild("INVISIBLE")
+    if not existing then
+        local tag = Instance.new("StringValue")
+        tag.Name = "INVISIBLE"
+        tag.Parent = char
+        return tag
+    end
+    return existing
+end
+
+local function startForceInvis()
+    if forceInvisEnabled then return end
+    forceInvisEnabled = true
+    invisTag = ensureInvisTag()
+    pcall(function() katanaActivate:FireServer() end)
+    invisHeartbeat = RunService.Heartbeat:Connect(function()
+        if not invisTag or not invisTag.Parent then
+            invisTag = ensureInvisTag()
+        end
+        pcall(function() katanaActivate:FireServer() end)
+        task.wait(2)
+    end)
+end
+
+local function stopForceInvis()
+    forceInvisEnabled = false
+    if invisHeartbeat then
+        invisHeartbeat:Disconnect()
+        invisHeartbeat = nil
+    end
+end
+
+player.CharacterAdded:Connect(function(char)
+    if forceInvisEnabled then
+        task.wait(0.5)
+        invisTag = ensureInvisTag()
+        pcall(function() katanaActivate:FireServer() end)
+    end
+end)
+
+-- 主要标签页按钮顺序：隐身 > 天亮 > 惊喜
+Tabs.Main:AddToggle("Invisibility", {
+    Title = "隐身",
+    Description = "开启后永久有效，无法关闭",
+    Default = false,
+    Callback = function(state)
+        if state then
+            Window:Dialog({
+                Title = "角色限制提醒",
+                Content = "此功能需要拥有武士刀技能的角色才能生效\n怪物将无法看到你，但靠近时仍可能被杀死",
+                Buttons = {
+                    {
+                        Title = "确认",
+                        Callback = function()
+                            startForceInvis()
+                        end
+                    },
+                    {
+                        Title = "取消",
+                        Callback = function() end
+                    }
+                }
+            })
+        else
+            stopForceInvis()
+        end
+    end
+})
+
 Tabs.Main:AddToggle("Daylight", {
     Title = "天亮",
     Description = "没有黑暗 只有光明",
     Default = false,
     Callback = function(state)
+        if not configLoaded then return end
         daylightEnabled = state
         if state then
             daylightCleanup()
@@ -416,7 +500,52 @@ Tabs.Main:AddToggle("Daylight", {
 })
 
 Tabs.Main:AddButton({
+    Title = "惊喜",
+    Callback = function()
+        local char = player.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then
+            Fluent:Notify({ Title = "惊喜", Content = "失败了...", Duration = 2 })
+            return
+        end
+        local root = char.HumanoidRootPart
+        local kit = workspace:FindFirstChild("kit")
+        if not kit then
+            Fluent:Notify({ Title = "惊喜", Content = "失败了...", Duration = 2 })
+            return
+        end
+
+        local closestMonster = nil
+        local closestDist = math.huge
+
+        for _, model in ipairs(kit:GetChildren()) do
+            if model:IsA("Model") then
+                local hum = model:FindFirstChild("Humanoid")
+                local hrp = model:FindFirstChild("HumanoidRootPart", true)
+                if hum and hum.Health > 0 and hrp then
+                    local dist = (hrp.Position - root.Position).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closestMonster = hrp
+                    end
+                end
+            end
+        end
+
+        if not closestMonster then
+            Fluent:Notify({ Title = "惊喜", Content = "失败了...", Duration = 2 })
+            return
+        end
+
+        local direction = (root.Position - closestMonster.Position).Unit
+        local targetPos = closestMonster.Position + direction * 8
+        root.CFrame = CFrame.new(targetPos)
+        Fluent:Notify({ Title = "惊喜", Content = "祝你好运~", Duration = 2 })
+    end
+})
+
+Tabs.Auto:AddButton({
     Title = "一键通关",
+    Description = "此功能全自动 请不要进行任何操作",
     Callback = function()
         local char = player.Character
         if not char or not char:FindFirstChild("HumanoidRootPart") then
@@ -531,8 +660,9 @@ Tabs.Main:AddButton({
     end
 })
 
-Tabs.Main:AddButton({
+Tabs.Auto:AddButton({
     Title = "解锁肯奇·福地莫托角色",
+    Description = "此功能全自动 请不要进行任何操作",
     Callback = function()
         Window:Dialog({
             Title = "重要提醒",
@@ -549,7 +679,6 @@ Tabs.Main:AddButton({
                         local root = char.HumanoidRootPart
                         local camera = workspace.CurrentCamera
 
-                        -- 第一步：传送到武士刀并互动
                         Fluent:Notify({ Title = "解锁角色", Content = "正在寻找武士刀...", Duration = 2 })
 
                         local katanaPart = nil
@@ -607,7 +736,6 @@ Tabs.Main:AddButton({
                         camera.CameraType = oldCameraType
                         if cameraLockThread then task.cancel(cameraLockThread) end
 
-                        -- 第二步：传送到通关区域并触发通关
                         Fluent:Notify({ Title = "解锁角色", Content = "正在传送到通关区域...", Duration = 2 })
 
                         local preTargetPos = Vector3.new(-299.10, -9.44, 2196.05)
@@ -718,85 +846,101 @@ Tabs.Main:AddButton({
     end
 })
 
-Tabs.Main:AddButton({
-    Title = "一键吃豆",
+Tabs.Auto:AddButton({
+    Title = "(第二关)一键吃豆",
+    Description = "此功能全自动 请不要进行任何操作",
     Callback = function()
-        local char = player.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then
-            Fluent:Notify({ Title = "失败", Content = "角色未加载", Duration = 2 })
-            return
-        end
-        local root = char.HumanoidRootPart
+        Window:Dialog({
+            Title = "重要提醒",
+            Content = "此功能仅限第2关使用！如果还没抵达第2关就点确定，你会直接掉进虚空摔死。确定要继续吗？",
+            Buttons = {
+                {
+                    Title = "确定",
+                    Callback = function()
+                        local char = player.Character
+                        if not char or not char:FindFirstChild("HumanoidRootPart") then
+                            Fluent:Notify({ Title = "失败", Content = "角色未加载", Duration = 2 })
+                            return
+                        end
+                        local root = char.HumanoidRootPart
 
-        local SAFE_DISTANCE = 25
+                        local SAFE_DISTANCE = 25
 
-        local function isNearMonster(pos)
-            local kit = workspace:FindFirstChild("kit")
-            if not kit then return false end
-            for _, model in ipairs(kit:GetChildren()) do
-                if model:IsA("Model") then
-                    local hrp = model:FindFirstChild("HumanoidRootPart")
-                    if hrp and (hrp.Position - pos).Magnitude < SAFE_DISTANCE then
-                        return true
+                        local function isNearMonster(pos)
+                            local kit = workspace:FindFirstChild("kit")
+                            if not kit then return false end
+                            for _, model in ipairs(kit:GetChildren()) do
+                                if model:IsA("Model") then
+                                    local hrp = model:FindFirstChild("HumanoidRootPart", true)
+                                    if hrp and (hrp.Position - pos).Magnitude < SAFE_DISTANCE then
+                                        return true
+                                    end
+                                end
+                            end
+                            return false
+                        end
+
+                        local function scanSouls()
+                            local positions = {}
+                            local soulsFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Souls")
+                            if soulsFolder then
+                                for _, part in ipairs(soulsFolder:GetDescendants()) do
+                                    if part:IsA("BasePart") and part.Name == "SoulPart" then
+                                        table.insert(positions, part.Position)
+                                    end
+                                end
+                            end
+                            return positions
+                        end
+
+                        local totalCount = 0
+
+                        for round = 1, 3 do
+                            local visitedPositions = {}
+                            local positions = scanSouls()
+                            if #positions == 0 then break end
+
+                            while #positions > 0 do
+                                table.sort(positions, function(a, b)
+                                    return (a - root.Position).Magnitude < (b - root.Position).Magnitude
+                                end)
+
+                                local safeFound = false
+                                for _, targetPos in ipairs(positions) do
+                                    if not visitedPositions[targetPos] and not isNearMonster(targetPos) then
+                                        root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
+                                        task.wait(0.05)
+                                        visitedPositions[targetPos] = true
+                                        totalCount = totalCount + 1
+                                        safeFound = true
+                                        break
+                                    end
+                                end
+
+                                if not safeFound then
+                                    Fluent:Notify({ Title = "警告", Content = "第" .. round .. "轮：剩余豆子太接近怪物，已跳过", Duration = 3 })
+                                    break
+                                end
+
+                                local allPositions = scanSouls()
+                                positions = {}
+                                for _, p in ipairs(allPositions) do
+                                    if not visitedPositions[p] then
+                                        table.insert(positions, p)
+                                    end
+                                end
+                            end
+                        end
+
+                        Fluent:Notify({ Title = "吃豆完成", Content = "共安全吃掉 " .. totalCount .. " 个豆", Duration = 3 })
                     end
-                end
-            end
-            return false
-        end
-
-        local function scanSouls()
-            local positions = {}
-            local soulsFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Souls")
-            if soulsFolder then
-                for _, part in ipairs(soulsFolder:GetDescendants()) do
-                    if part:IsA("BasePart") and part.Name == "SoulPart" then
-                        table.insert(positions, part.Position)
-                    end
-                end
-            end
-            return positions
-        end
-
-        local totalCount = 0
-
-        for round = 1, 3 do
-            local visitedPositions = {}
-            local positions = scanSouls()
-            if #positions == 0 then break end
-
-            while #positions > 0 do
-                table.sort(positions, function(a, b)
-                    return (a - root.Position).Magnitude < (b - root.Position).Magnitude
-                end)
-
-                local safeFound = false
-                for _, targetPos in ipairs(positions) do
-                    if not visitedPositions[targetPos] and not isNearMonster(targetPos) then
-                        root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
-                        task.wait(0.05)
-                        visitedPositions[targetPos] = true
-                        totalCount = totalCount + 1
-                        safeFound = true
-                        break
-                    end
-                end
-
-                if not safeFound then
-                    Fluent:Notify({ Title = "警告", Content = "第" .. round .. "轮：剩余豆子太接近怪物，已跳过", Duration = 3 })
-                    break
-                end
-
-                local allPositions = scanSouls()
-                positions = {}
-                for _, p in ipairs(allPositions) do
-                    if not visitedPositions[p] then
-                        table.insert(positions, p)
-                    end
-                end
-            end
-        end
-
-        Fluent:Notify({ Title = "吃豆完成", Content = "共安全吃掉 " .. totalCount .. " 个豆", Duration = 3 })
+                },
+                {
+                    Title = "取消",
+                    Callback = function() end
+                }
+            }
+        })
     end
 })
 
@@ -813,6 +957,7 @@ Tabs.Teleport:AddButton({
 
 Tabs.Teleport:AddButton({
     Title = "第2关出生点",
+    Description = "请确保已抵达第2关区域，否则可能摔死",
     Callback = function()
         local char = player.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
@@ -936,3 +1081,4 @@ SaveManager:BuildConfigSection(Tabs.Other)
 
 Window:SelectTab(1)
 SaveManager:LoadAutoloadConfig()
+configLoaded = true
