@@ -1,5 +1,3 @@
---!native
-
 if getgenv().SimpleSpyExecuted and type(getgenv().SimpleSpyShutdown) == "function" then
     getgenv().SimpleSpyShutdown()
 end
@@ -74,9 +72,8 @@ local setclipboard = setclipboard or toclipboard or set_clipboard or (Clipboard 
     return ErrorPrompt("尝试设置剪贴板："..(...),true)
 end
 
-local hookmetamethod = hookmetamethod or (makewritable and makereadonly and getrawmetatable) and function(obj: object, metamethod: string, func: Function)
+local hookmetamethod = hookmetamethod or (makewritable and makereadonly and getrawmetatable) and function(obj, metamethod, func)
     local old = getrawmetatable(obj)
-
     if hookfunction then
         return hookfunction(old[metamethod],func)
     else
@@ -90,50 +87,35 @@ end
 
 local function Create(instance, properties, children)
     local obj = Instance.new(instance)
-
     for i, v in next, properties or {} do
         obj[i] = v
-        for _, child in next, children or {} do
-            child.Parent = obj;
-        end
     end
-    return obj;
+    for _, child in next, children or {} do
+        child.Parent = obj
+    end
+    return obj
 end
 
 local function SafeGetService(service)
     return cloneref(game:GetService(service))
 end
 
-local function Search(logtable,tbl)
-    table.insert(logtable,tbl)
-    
-    for i,v in tbl do
-        if type(v) == "table" then
-            return table.find(logtable,v) ~= nil or Search(v)
-        end
-    end
-end
-
 local function IsCyclicTable(tbl)
     local checkedtables = {}
-
     local function SearchTable(tbl)
         table.insert(checkedtables,tbl)
-        
         for i,v in next, tbl do
             if type(v) == "table" then
                 return table.find(checkedtables,v) and true or SearchTable(v)
             end
         end
     end
-
     return SearchTable(tbl)
 end
 
-local function deepclone(args: table, copies: table): table
+local function deepclone(args, copies)
     local copy = nil
     copies = copies or {}
-
     if type(args) == 'table' then
         if copies[args] then
             copy = copies[args]
@@ -156,7 +138,6 @@ local function rawtostring(userdata)
     if type(userdata) == "table" or typeof(userdata) == "userdata" then
         local rawmetatable = getrawmetatable(userdata)
         local cachedstring = rawmetatable and rawget(rawmetatable, "__tostring")
-
         if cachedstring then
             local wasreadonly = isreadonly(rawmetatable)
             if wasreadonly then
@@ -182,7 +163,7 @@ local TweenService = SafeGetService("TweenService")
 local ContentProvider = SafeGetService("ContentProvider")
 local TextService = SafeGetService("TextService")
 local http = SafeGetService("HttpService")
-local GuiInset = game:GetService("GuiService"):GetGuiInset() :: Vector2
+local GuiInset = game:GetService("GuiService"):GetGuiInset()
 
 local function jsone(str) return http:JSONEncode(str) end
 local function jsond(str)
@@ -225,11 +206,11 @@ local SimpleSpy3 = Create("ScreenGui",{ResetOnSpawn = false})
 local Storage = Create("Folder",{})
 local Background = Create("Frame",{Parent = SimpleSpy3,BackgroundColor3 = Color3.new(1, 1, 1),BackgroundTransparency = 1,Position = UDim2.new(0, 500, 0, 200),Size = UDim2.new(0, 450, 0, 268)})
 local LeftPanel = Create("Frame",{Parent = Background,BackgroundColor3 = Color3.fromRGB(53, 52, 55),BorderSizePixel = 0,Position = UDim2.new(0, 0, 0, 19),Size = UDim2.new(0, 131, 0, 249)})
-local LogList = Create("ScrollingFrame",{Parent = LeftPanel,Active = true,BackgroundColor3 = Color3.new(1, 1, 1),BackgroundTransparency = 1,BorderSizePixel = 0,Position = UDim2.new(0, 0, 0, 9),Size = UDim2.new(0, 131, 0, 232),CanvasSize = UDim2.new(0, 0, 0, 0),ScrollBarThickness = 4})
+local LogList = Create("ScrollingFrame",{Parent = LeftPanel,Active = true,BackgroundColor3 = Color3.new(1, 1, 1),BackgroundTransparency = 1,BorderSizePixel = 0,Position = UDim2.new(0, 0, 0, 9),Size = UDim2.new(0, 131, 0, 232),CanvasSize = UDim2.new(0, 0, 0, 0),ScrollBarThickness = 4,ElasticBehavior = Enum.ElasticBehavior.Always})
 local UIListLayout = Create("UIListLayout",{Parent = LogList,HorizontalAlignment = Enum.HorizontalAlignment.Center,SortOrder = Enum.SortOrder.LayoutOrder})
 local RightPanel = Create("Frame",{Parent = Background,BackgroundColor3 = Color3.fromRGB(37, 36, 38),BorderSizePixel = 0,Position = UDim2.new(0, 131, 0, 19),Size = UDim2.new(0, 319, 0, 249)})
 local CodeBox = Create("Frame",{Parent = RightPanel,BackgroundColor3 = Color3.new(0.0823529, 0.0745098, 0.0784314),BorderSizePixel = 0,Size = UDim2.new(0, 319, 0, 119)})
-local ScrollingFrame = Create("ScrollingFrame",{Parent = RightPanel,Active = true,BackgroundColor3 = Color3.new(1, 1, 1),BackgroundTransparency = 1,Position = UDim2.new(0, 0, 0.5, 0),Size = UDim2.new(1, 0, 0.5, -9),CanvasSize = UDim2.new(0, 0, 0, 0),ScrollBarThickness = 4})
+local ScrollingFrame = Create("ScrollingFrame",{Parent = RightPanel,Active = true,BackgroundColor3 = Color3.new(1, 1, 1),BackgroundTransparency = 1,Position = UDim2.new(0, 0, 0.5, 0),Size = UDim2.new(1, 0, 0.5, -9),CanvasSize = UDim2.new(0, 0, 0, 0),ScrollBarThickness = 4,ElasticBehavior = Enum.ElasticBehavior.Always})
 local UIGridLayout = Create("UIGridLayout",{Parent = ScrollingFrame,HorizontalAlignment = Enum.HorizontalAlignment.Center,SortOrder = Enum.SortOrder.LayoutOrder,CellPadding = UDim2.new(0, 0, 0, 0),CellSize = UDim2.new(0, 94, 0, 27)})
 local TopBar = Create("Frame",{Parent = Background,BackgroundColor3 = Color3.fromRGB(37, 35, 38),BorderSizePixel = 0,Size = UDim2.new(0, 450, 0, 19)})
 local Simple = Create("TextButton",{Parent = TopBar,BackgroundColor3 = Color3.new(1, 1, 1),AutoButtonColor = false,BackgroundTransparency = 1,Position = UDim2.new(0, 5, 0, 0),Size = UDim2.new(0, 57, 0, 18),Font = Enum.Font.SourceSansBold,Text =  "SimpleSpy",TextColor3 = Color3.new(1, 1, 1),TextSize = 14,TextXAlignment = Enum.TextXAlignment.Left})
@@ -277,6 +258,13 @@ local history = {}
 local excluding = {}
 
 local mouseInGui = false
+local dragging = false
+local dragStart
+local dragOffset
+local resizing = false
+local resizeStartSize
+local resizeStartPos
+local resizeEdge
 
 local connections = {}
 local DecompiledScripts = {}
@@ -296,19 +284,18 @@ local originalUnreliableEvent = unreliableRemoteEvent.FireServer
 local originalFunction = remoteFunction.InvokeServer
 local GetDebugIDInvoke = GetDebugIdHandler.Invoke
 
-function GetDebugIdHandler.OnInvoke(obj: Instance)
+function GetDebugIdHandler.OnInvoke(obj)
     return OldDebugId(obj)
 end
 
-local function ThreadGetDebugId(obj: Instance): string 
+local function ThreadGetDebugId(obj)
     return GetDebugIDInvoke(GetDebugIdHandler,obj)
 end
 
 local synv3 = false
-
 if syn and identifyexecutor then
     local _, version = identifyexecutor()
-    if (version and version:sub(1, 2) == 'v3') then
+    if version and version:sub(1, 2) == 'v3' then
         synv3 = true
     end
 end
@@ -316,7 +303,6 @@ end
 xpcall(function()
     if isfile and readfile and isfolder and makefolder then
         local cachedconfigs = isfile("SimpleSpy//Settings.json") and jsond(readfile("SimpleSpy//Settings.json"))
-
         if cachedconfigs then
             for i,v in next, realconfigs do
                 if cachedconfigs[i] == nil then
@@ -325,7 +311,6 @@ xpcall(function()
             end
             realconfigs = cachedconfigs
         end
-
         if not isfolder("SimpleSpy") then
             makefolder("SimpleSpy")
         end
@@ -335,7 +320,6 @@ xpcall(function()
         if not isfile("SimpleSpy//Settings.json") then
             writefile("SimpleSpy//Settings.json",jsone(realconfigs))
         end
-
         configsmetatable.__newindex = function(self,index,newindex)
             realconfigs[index] = newindex
             writefile("SimpleSpy//Settings.json",jsone(realconfigs))
@@ -349,7 +333,7 @@ end,function(err)
     ErrorPrompt(("发生错误：(%s)"):format(err))
 end)
 
-local function logthread(thread: thread)
+local function logthread(thread)
     table.insert(running_threads,thread)
 end
 
@@ -376,7 +360,7 @@ function clean()
     end
 end
 
-local function ThreadIsNotDead(thread: thread): boolean
+local function ThreadIsNotDead(thread)
     return not status(thread) == "dead"
 end
 
@@ -456,97 +440,92 @@ function bringBackOnResize()
     TweenService.Create(TweenService, Background, TweenInfo.new(0.1), {Position = UDim2.new(0, currentX, 0, currentY)}):Play()
 end
 
-function onBarInput(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        local lastPos = UserInputService:GetMouseLocation()
-        local mainPos = Background.AbsolutePosition
-        local offset = mainPos - lastPos
-        local currentPos = offset + lastPos
-        if not connections["drag"] then
-            connections["drag"] = RunService.RenderStepped:Connect(function()
-                local newPos = UserInputService:GetMouseLocation()
-                if newPos ~= lastPos then
-                    local currentX = (offset + newPos).X
-                    local currentY = (offset + newPos).Y
-                    local viewportSize = workspace.CurrentCamera.ViewportSize
-                    if (currentX < 0 and currentX < currentPos.X) or (currentX > (viewportSize.X - (sideClosed and 131 or TopBar.AbsoluteSize.X)) and currentX > currentPos.X) then
-                        if currentX < 0 then
-                            currentX = 0
-                        else
-                            currentX = viewportSize.X - (sideClosed and 131 or TopBar.AbsoluteSize.X)
-                        end
-                    end
-                    if (currentY < 0 and currentY < currentPos.Y) or (currentY > (viewportSize.Y - (closed and 19 or Background.AbsoluteSize.Y) - GuiInset.Y) and currentY > currentPos.Y) then
-                        if currentY < 0 then
-                            currentY = 0
-                        else
-                            currentY = viewportSize.Y - (closed and 19 or Background.AbsoluteSize.Y) - GuiInset.Y
-                        end
-                    end
-                    currentPos = Vector2.new(currentX, currentY)
-                    lastPos = newPos
-                    TweenService.Create(TweenService, Background, TweenInfo.new(0.1), {Position = UDim2.new(0, currentPos.X, 0, currentPos.Y)}):Play()
-                end
-            end)
+function startDrag(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local pos = input.Position
+        if isInDragRange(pos) then
+            dragging = true
+            dragStart = pos
+            dragOffset = Background.AbsolutePosition - pos
         end
-        table.insert(connections, UserInputService.InputEnded:Connect(function(inputE)
-            if input == inputE then
-                if connections["drag"] then
-                    connections["drag"]:Disconnect()
-                    connections["drag"] = nil
-                end
-            end
-        end))
     end
 end
 
-function fadeOut(elements)
-    local data = {}
-    for _, v in next, elements do
-        if typeof(v) == "Instance" and v:IsA("GuiObject") and v.Visible then
-            spawn(function()
-                data[v] = {
-                    BackgroundTransparency = v.BackgroundTransparency
-                }
-                TweenService:Create(v, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
-                if v:IsA("TextBox") or v:IsA("TextButton") or v:IsA("TextLabel") then
-                    data[v].TextTransparency = v.TextTransparency
-                    TweenService:Create(v, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
-                elseif v:IsA("ImageButton") or v:IsA("ImageLabel") then
-                    data[v].ImageTransparency = v.ImageTransparency
-                    TweenService:Create(v, TweenInfo.new(0.5), {ImageTransparency = 1}):Play()
-                end
-                delay(0.5,function()
-                    v.Visible = false
-                    for i, x in next, data[v] do
-                        v[i] = x
-                    end
-                    data[v] = true
-                end)
-            end)
+function updateDrag(input)
+    if dragging then
+        local newPos = input.Position
+        local delta = newPos - dragStart
+        local newAbsPos = dragOffset + newPos
+        local viewport = workspace.CurrentCamera.ViewportSize
+        local minX = 0
+        local maxX = viewport.X - Background.AbsoluteSize.X
+        local minY = 0
+        local maxY = viewport.Y - Background.AbsoluteSize.Y - GuiInset.Y
+        local clampedX = math.clamp(newAbsPos.X, minX, maxX)
+        local clampedY = math.clamp(newAbsPos.Y, minY, maxY)
+        Background.Position = UDim2.fromOffset(clampedX, clampedY)
+        dragStart = newPos
+        dragOffset = dragOffset + delta
+    end
+end
+
+function endDrag()
+    dragging = false
+end
+
+function isInDragRange(p)
+    local relativeP = p - Background.AbsolutePosition
+    local topbarAS = TopBar.AbsoluteSize
+    return relativeP.X <= topbarAS.X - CloseButton.AbsoluteSize.X * 3 and relativeP.X >= 0 and relativeP.Y <= topbarAS.Y and relativeP.Y >= 0 or false
+end
+
+function startResize(input)
+    local pos = input.Position
+    local inRange, edge = isInResizeRange(pos)
+    if inRange and not closed then
+        resizing = true
+        resizeEdge = edge
+        resizeStartSize = Background.AbsoluteSize
+        resizeStartPos = pos
+    end
+end
+
+function updateResize(input)
+    if resizing then
+        local delta = input.Position - resizeStartPos
+        local newWidth = resizeStartSize.X
+        local newHeight = resizeStartSize.Y
+        if resizeEdge == "X" or resizeEdge == "B" then
+            newWidth = math.max(450, resizeStartSize.X + delta.X)
+        end
+        if resizeEdge == "Y" or resizeEdge == "B" then
+            newHeight = math.max(268, resizeStartSize.Y + delta.Y)
+        end
+        Background.Size = UDim2.fromOffset(newWidth, newHeight)
+        validateSize()
+        if sideClosed then
+            minimizeSize()
+        else
+            maximizeSize()
         end
     end
-    return function()
-        for i, _ in next, data do
-            spawn(function()
-                local properties = {
-                    BackgroundTransparency = i.BackgroundTransparency
-                }
-                i.BackgroundTransparency = 1
-                TweenService:Create(i, TweenInfo.new(0.5), {BackgroundTransparency = properties.BackgroundTransparency}):Play()
-                if i:IsA("TextBox") or i:IsA("TextButton") or i:IsA("TextLabel") then
-                    properties.TextTransparency = i.TextTransparency
-                    i.TextTransparency = 1
-                    TweenService:Create(i, TweenInfo.new(0.5), {TextTransparency = properties.TextTransparency}):Play()
-                elseif i:IsA("ImageButton") or i:IsA("ImageLabel") then
-                    properties.ImageTransparency = i.ImageTransparency
-                    i.ImageTransparency = 1
-                    TweenService:Create(i, TweenInfo.new(0.5), {ImageTransparency = properties.ImageTransparency}):Play()
-                end
-                i.Visible = true
-            end)
-        end
+end
+
+function endResize()
+    resizing = false
+end
+
+function isInResizeRange(p)
+    local relativeP = p - Background.AbsolutePosition
+    local range = 20
+    if relativeP.X >= Background.AbsoluteSize.X - range and relativeP.Y >= Background.AbsoluteSize.Y - range then
+        return true, 'B'
+    elseif relativeP.X >= Background.AbsoluteSize.X - range then
+        return true, 'X'
+    elseif relativeP.Y >= Background.AbsoluteSize.Y - range then
+        return true, 'Y'
     end
+    return false
 end
 
 function toggleMinimize(override)
@@ -636,66 +615,52 @@ function toggleMaximize()
     end
 end
 
-function isInResizeRange(p)
-    local relativeP = p - Background.AbsolutePosition
-    local range = 5
-    if relativeP.X >= TopBar.AbsoluteSize.X - range and relativeP.Y >= Background.AbsoluteSize.Y - range
-        and relativeP.X <= TopBar.AbsoluteSize.X and relativeP.Y <= Background.AbsoluteSize.Y then
-        return true, 'B'
-    elseif relativeP.X >= TopBar.AbsoluteSize.X - range and relativeP.X <= Background.AbsoluteSize.X then
-        return true, 'X'
-    elseif relativeP.Y >= Background.AbsoluteSize.Y - range and relativeP.Y <= Background.AbsoluteSize.Y then
-        return true, 'Y'
-    end
-    return false
-end
-
-function isInDragRange(p)
-    local relativeP = p - Background.AbsolutePosition
-    local topbarAS = TopBar.AbsoluteSize
-    return relativeP.X <= topbarAS.X - CloseButton.AbsoluteSize.X * 3 and relativeP.X >= 0 and relativeP.Y <= topbarAS.Y and relativeP.Y >= 0 or false
-end
-
-local customCursor = Create("ImageLabel",{Parent = SimpleSpy3,Visible = false,Size = UDim2.fromOffset(200, 200),ZIndex = 1e9,BackgroundTransparency = 1,Image = "",Parent = SimpleSpy3})
-function mouseEntered()
-    local con = connections["SIMPLESPY_CURSOR"]
-    if con then
-        con:Disconnect()
-        connections["SIMPLESPY_CURSOR"] = nil
-    end
-    connections["SIMPLESPY_CURSOR"] = RunService.RenderStepped:Connect(function()
-        UserInputService.MouseIconEnabled = not mouseInGui
-        customCursor.Visible = mouseInGui
-        if mouseInGui and getgenv().SimpleSpyExecuted then
-            local mouseLocation = UserInputService:GetMouseLocation() - GuiInset
-            customCursor.Position = UDim2.fromOffset(mouseLocation.X - customCursor.AbsoluteSize.X / 2, mouseLocation.Y - customCursor.AbsoluteSize.Y / 2)
-            local inRange, type = isInResizeRange(mouseLocation)
-            if inRange and not closed then
-                if not sideClosed then
-                    customCursor.Image = type == 'B' and "rbxassetid://6065821980" or type == 'X' and "rbxassetid://6065821086" or type == 'Y' and "rbxassetid://6065821596"
-                elseif type == 'Y' or type == 'B' then
-                    customCursor.Image = "rbxassetid://6065821596"
+function fadeOut(elements)
+    local data = {}
+    for _, v in next, elements do
+        if typeof(v) == "Instance" and v:IsA("GuiObject") and v.Visible then
+            spawn(function()
+                data[v] = {
+                    BackgroundTransparency = v.BackgroundTransparency
+                }
+                TweenService:Create(v, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+                if v:IsA("TextBox") or v:IsA("TextButton") or v:IsA("TextLabel") then
+                    data[v].TextTransparency = v.TextTransparency
+                    TweenService:Create(v, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
+                elseif v:IsA("ImageButton") or v:IsA("ImageLabel") then
+                    data[v].ImageTransparency = v.ImageTransparency
+                    TweenService:Create(v, TweenInfo.new(0.5), {ImageTransparency = 1}):Play()
                 end
-            elseif customCursor.Image ~= "rbxassetid://6065775281" then
-                customCursor.Image = "rbxassetid://6065775281"
-            end
-        else
-            connections["SIMPLESPY_CURSOR"]:Disconnect()
+                delay(0.5,function()
+                    v.Visible = false
+                    for i, x in next, data[v] do
+                        v[i] = x
+                    end
+                    data[v] = true
+                end)
+            end)
         end
-    end)
-end
-
-function mouseMoved()
-    local mousePos = UserInputService:GetMouseLocation() - GuiInset
-    if not closed
-    and mousePos.X >= TopBar.AbsolutePosition.X and mousePos.X <= TopBar.AbsolutePosition.X + TopBar.AbsoluteSize.X
-    and mousePos.Y >= Background.AbsolutePosition.Y and mousePos.Y <= Background.AbsolutePosition.Y + Background.AbsoluteSize.Y then
-        if not mouseInGui then
-            mouseInGui = true
-            mouseEntered()
+    end
+    return function()
+        for i, _ in next, data do
+            spawn(function()
+                local properties = {
+                    BackgroundTransparency = i.BackgroundTransparency
+                }
+                i.BackgroundTransparency = 1
+                TweenService:Create(i, TweenInfo.new(0.5), {BackgroundTransparency = properties.BackgroundTransparency}):Play()
+                if i:IsA("TextBox") or i:IsA("TextButton") or i:IsA("TextLabel") then
+                    properties.TextTransparency = i.TextTransparency
+                    i.TextTransparency = 1
+                    TweenService:Create(i, TweenInfo.new(0.5), {TextTransparency = properties.TextTransparency}):Play()
+                elseif i:IsA("ImageButton") or i:IsA("ImageLabel") then
+                    properties.ImageTransparency = i.ImageTransparency
+                    i.ImageTransparency = 1
+                    TweenService:Create(i, TweenInfo.new(0.5), {ImageTransparency = properties.ImageTransparency}):Play()
+                end
+                i.Visible = true
+            end)
         end
-    else
-        mouseInGui = false
     end
 end
 
@@ -733,65 +698,13 @@ function validateSize()
             x = 450
         end
     elseif y + Background.AbsolutePosition.Y > screenSize.Y then
-        if screenSize.X - Background.AbsolutePosition.Y >= 268 then
+        if screenSize.Y - Background.AbsolutePosition.Y >= 268 then
             y = screenSize.Y - Background.AbsolutePosition.Y
         else
             y = 268
         end
     end
     Background.Size = UDim2.fromOffset(x, y)
-end
-
-function backgroundUserInput(input)
-    local mousePos = UserInputService:GetMouseLocation() - GuiInset
-    local inResizeRange, type = isInResizeRange(mousePos)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 and inResizeRange then
-        local lastPos = UserInputService:GetMouseLocation()
-        local offset = Background.AbsoluteSize - lastPos
-        local currentPos = lastPos + offset
-        if not connections["SIMPLESPY_RESIZE"] then
-            connections["SIMPLESPY_RESIZE"] = RunService.RenderStepped:Connect(function()
-                local newPos = UserInputService:GetMouseLocation()
-                if newPos ~= lastPos then
-                    local currentX = (newPos + offset).X
-                    local currentY = (newPos + offset).Y
-                    if currentX < 450 then
-                        currentX = 450
-                    end
-                    if currentY < 268 then
-                        currentY = 268
-                    end
-                    currentPos = Vector2.new(currentX, currentY)
-                    Background.Size = UDim2.fromOffset((not sideClosed and not closed and (type == "X" or type == "B")) and currentPos.X or Background.AbsoluteSize.X, (not closed and (type == "Y" or type == "B")) and currentPos.Y or Background.AbsoluteSize.Y)
-                    validateSize()
-                    if sideClosed then
-                        minimizeSize()
-                    else
-                        maximizeSize()
-                    end
-                    lastPos = newPos
-                end
-            end)
-        end
-        table.insert(connections, UserInputService.InputEnded:Connect(function(inputE)
-            if input == inputE then
-                if connections["SIMPLESPY_RESIZE"] then
-                    connections["SIMPLESPY_RESIZE"]:Disconnect()
-                    connections["SIMPLESPY_RESIZE"] = nil
-                end
-            end
-        end))
-    elseif isInDragRange(mousePos) then
-        onBarInput(input)
-    end
-end
-
-function getPlayerFromInstance(instance)
-    for _, v in next, Players:GetPlayers() do
-        if v.Character and (instance:IsDescendantOf(v.Character) or instance == v.Character) then
-            return v
-        end
-    end
 end
 
 function eventSelect(frame)
@@ -924,7 +837,7 @@ function newRemote(type, data)
         Blocked = data.blocked,
         Source = callingscript,
         returnvalue = data.returnvalue,
-        GenScript = "-- 正在生成，请稍候...\n-- (如果此消息持续存在，远程参数可能过长)"
+        GenScript = "-- 正在生成，请稍候...\n-- (如果此消息持续，远程参数可能过长)"
     }
 
     logs[#logs + 1] = log
@@ -952,7 +865,7 @@ function genScript(remote, args)
         xpcall(function()
             gen = "local args = "..LazyFix.Convert(args, true) .. "\n"
         end,function(err)
-            gen ..= "-- 发生错误：\n--"..err.."\n-- TableToString 失败！回退到旧版功能（结果可能不同）\nlocal args = {"
+            gen ..= "-- 发生错误：\n--"..err.."\n-- TableToString 失败！回退到旧版功能\nlocal args = {"
             xpcall(function()
                 for i, v in next, args do
                     if type(i) ~= "Instance" and type(i) ~= "userdata" then
@@ -1035,7 +948,6 @@ ufunctions = {
     end,
     Ray = function(u)
         local Vector3tostring = ufunctions["Vector3"]
-
         return `Ray.new({Vector3tostring(u.Origin)}, {Vector3tostring(u.Direction)})`
     end,
     BrickColor = function(u)
@@ -1048,7 +960,6 @@ ufunctions = {
         local center = u.CFrame.Position
         local centersize = u.Size/2
         local Vector3tostring = ufunctions["Vector3"]
-
         return `Region3.new({Vector3tostring(center-centersize)}, {Vector3tostring(center+centersize)})`
     end,
     Faces = function(u)
@@ -1108,10 +1019,10 @@ ufunctions = {
         return `Color3.new({u.R}, {u.G}, {u.B})`
     end,
     RBXScriptSignal = function(u)
-        return "RBXScriptSignal --[[不支持 RBXScriptSignal]]"
+        return "RBXScriptSignal"
     end,
     RBXScriptConnection = function(u)
-        return "RBXScriptConnection --[[不支持 RBXScriptConnection]]"
+        return "RBXScriptConnection"
     end,
 }
 
@@ -1152,7 +1063,7 @@ local typev2sfunctions = {
         if ufunctions[vtypeof] then
             return ufunctions[vtypeof](v)
         end
-        return `{vtypeof}({rawtostring(v)}) --[[生成失败]]`
+        return `{vtypeof}({rawtostring(v)})`
     end,
     vector = ufunctions["Vector3"]
 }
@@ -1161,19 +1072,17 @@ function v2s(v, l, p, n, vtv, i, pt, path, tables, tI)
     local vtypeof = typeof(v)
     local vtypeoffunc = typeofv2sfunctions[vtypeof]
     local vtypefunc = typev2sfunctions[type(v)]
-    local vtype = type(v)
     if not tI then
         tI = {0}
     else
         tI[1] += 1
     end
-
     if vtypeoffunc then
         return vtypeoffunc(v, l, p, n, vtv, i, pt, path, tables, tI)
     elseif vtypefunc then
         return vtypefunc(v,vtypeof)
     end
-    return `{vtypeof}({rawtostring(v)}) --[[生成失败]]`
+    return `{vtypeof}({rawtostring(v)})`
 end
 
 function v2v(t)
@@ -1204,10 +1113,6 @@ function v2v(t)
     return ret
 end
 
-function tabletostring(tbl: table,format: boolean)
-    
-end
-
 function t2s(t, l, p, n, vtv, i, pt, path, tables, tI)
     local globalIndex = table.find(getgenv(), t)
     if type(globalIndex) == "string" then
@@ -1229,7 +1134,7 @@ function t2s(t, l, p, n, vtv, i, pt, path, tables, tI)
     for _, v in next, tables do
         if n and rawequal(v, t) then
             bottomstr = bottomstr .. "\n" .. rawtostring(n) .. rawtostring(path) .. " = " .. rawtostring(n) .. rawtostring(({v2p(v, p)})[2])
-            return "{} --[[重复]]"
+            return "{}"
         end
     end
     table.insert(tables, t)
@@ -1239,7 +1144,7 @@ function t2s(t, l, p, n, vtv, i, pt, path, tables, tI)
     for k, v in next, t do
         size = size + 1
         if size > (getgenv().SimpleSpyMaxTableSize or 1000) then
-            s = s .. "\n" .. string.rep(" ", l) .. "-- 已达到最大表大小，更改 'getgenv().SimpleSpyMaxTableSize' 以调整最大值 "
+            s = s .. "\n" .. string.rep(" ", l) .. "-- 已达到最大表大小，更改 'getgenv().SimpleSpyMaxTableSize' 以调整最大值"
             break
         end
         if rawequal(k, t) then
@@ -1283,12 +1188,10 @@ function f2s(f)
             end
         end
     end
-    
     if configs.funcEnabled then
         local funcname = info(f,"n")
-        
         if funcname and funcname:match("^[%a_]+[%w_]*$") then
-            return `function {funcname}() end -- 函数名：{funcname}`
+            return `function {funcname}() end`
         end
     end
     return tostring(f)
@@ -1416,7 +1319,7 @@ function formatstr(s, indentation)
     return '"' .. handled .. '"' .. (reachedMax and " --[[已达到最大字符串长度，更改 'getgenv().SimpleSpyMaxStringSize' 以调整最大值]]" or "")
 end
 
-local function isFinished(coroutines: table)
+local function isFinished(coroutines)
     for _, v in next, coroutines do
         if status(v) == "running" then
             return false
@@ -1455,13 +1358,11 @@ function handlespecials(s, indentation)
             timeout = 0
         end
         local char = s:sub(i, i)
-
         if byte(char) then
             timeout += 1
             local c = create(coroutineFunc)
             table.insert(coroutines, c)
             local specialfunc = specialstrings[char]
-
             if specialfunc then
                 specialfunc(c,i)
                 i += 1
@@ -1486,55 +1387,6 @@ function handlespecials(s, indentation)
         return s, true
     end
     return s, false
-end
-
-function getScriptFromSrc(src)
-    local realPath
-    local runningTest
-    local s, e
-    local match = false
-    if src:sub(1, 1) == "=" then
-        realPath = game
-        s = 2
-    else
-        runningTest = src:sub(2, e and e - 1 or -1)
-        for _, v in next, getnilinstances() do
-            if v.Name == runningTest then
-                realPath = v
-                break
-            end
-        end
-        s = #runningTest + 1
-    end
-    if realPath then
-        e = src:sub(s, -1):find("%.")
-        local i = 0
-        repeat
-            i += 1
-            if not e then
-                runningTest = src:sub(s, -1)
-                local test = realPath.FindFirstChild(realPath, runningTest)
-                if test then
-                    realPath = test
-                end
-                match = true
-            else
-                runningTest = src:sub(s, e)
-                local test = realPath.FindFirstChild(realPath, runningTest)
-                local yeOld = e
-                if test then
-                    realPath = test
-                    s = e + 2
-                    e = src:sub(e + 2, -1):find("%.")
-                    e = e and e + yeOld or e
-                else
-                    e = src:sub(e + 2, -1):find("%.")
-                    e = e and e + yeOld or e
-                end
-            end
-        until match or i >= 50
-    end
-    return realPath
 end
 
 function schedule(f, ...)
@@ -1573,7 +1425,6 @@ end
 function remoteHandler(data)
     if configs.autoblock then
         local id = data.id
-
         if excluding[id] then
             return
         end
@@ -1592,7 +1443,6 @@ function remoteHandler(data)
         end
         history[id].lastCall = tick()
     end
-
     if (data.remote:IsA("RemoteEvent") or data.remote:IsA("UnreliableRemoteEvent")) and lower(data.method) == "fireserver" then
         newRemote("event", data)
     elseif data.remote:IsA("RemoteFunction") and lower(data.method) == "invokeserver" then
@@ -1603,13 +1453,11 @@ end
 local newindex = function(method,originalfunction,...)
     if typeof(...) == 'Instance' then
         local remote = cloneref(...)
-
         if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") or remote:IsA("UnreliableRemoteEvent") then
             if not configs.logcheckcaller and checkcaller() then return originalfunction(...) end
             local id = ThreadGetDebugId(remote)
             local blockcheck = tablecheck(blocklist,remote,id)
             local args = {select(2,...)}
-
             if not tablecheck(blacklist,remote,id) and not IsCyclicTable(args) then
                 local data = {
                     method = method,
@@ -1623,15 +1471,13 @@ local newindex = function(method,originalfunction,...)
                     returnvalue = {}
                 }
                 args = nil
-
                 if configs.funcEnabled then
                     data.infofunc = info(2,"f")
                     local calling = getcallingscript()
                     data.callingscript = calling and cloneref(calling) or nil
                 end
-
                 schedule(remoteHandler,data)
-                end
+            end
             if blockcheck then return end
         end
     end
@@ -1640,17 +1486,14 @@ end
 
 local newnamecall = newcclosure(function(...)
     local method = getnamecallmethod()
-
     if method and (method == "FireServer" or method == "fireServer" or method == "InvokeServer" or method == "invokeServer") then
         if typeof(...) == 'Instance' then
             local remote = cloneref(...)
-
             if IsA(remote,"RemoteEvent") or IsA(remote,"RemoteFunction") or IsA(remote,"UnreliableRemoteEvent") then    
                 if not configs.logcheckcaller and checkcaller() then return originalnamecall(...) end
                 local id = ThreadGetDebugId(remote)
                 local blockcheck = tablecheck(blocklist,remote,id)
                 local args = {select(2,...)}
-
                 if not tablecheck(blacklist,remote,id) and not IsCyclicTable(args) then
                     local data = {
                         method = method,
@@ -1664,13 +1507,11 @@ local newnamecall = newcclosure(function(...)
                         returnvalue = {}
                     }
                     args = nil
-
                     if configs.funcEnabled then
                         data.infofunc = info(2,"f")
                         local calling = getcallingscript()
                         data.callingscript = calling and cloneref(calling) or nil
                     end
-
                     schedule(remoteHandler,data)
                 end
                 if blockcheck then return end
@@ -1790,14 +1631,6 @@ if not getgenv().SimpleSpyExecuted then
                 end
             end
         end
-        Background.MouseEnter:Connect(function(...)
-            mouseInGui = true
-            mouseEntered()
-        end)
-        Background.MouseLeave:Connect(function(...)
-            mouseInGui = false
-            mouseEntered()
-        end)
         TextLabel:GetPropertyChangedSignal("Text"):Connect(scaleToolTip)
         MinimizeButton.MouseButton1Click:Connect(toggleMinimize)
         MaximizeButton.MouseButton1Click:Connect(toggleSideTray)
@@ -1807,7 +1640,24 @@ if not getgenv().SimpleSpyExecuted then
         Simple.MouseEnter:Connect(onToggleButtonHover)
         Simple.MouseLeave:Connect(onToggleButtonUnhover)
         CloseButton.MouseButton1Click:Connect(shutdown)
-        table.insert(connections, UserInputService.InputBegan:Connect(backgroundUserInput))
+        UserInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                startDrag(input)
+                startResize(input)
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
+                updateDrag(input)
+                updateResize(input)
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                endDrag()
+                endResize()
+            end
+        end)
         connectResize()
         SimpleSpy3.Enabled = true
         logthread(spawn(function()
@@ -1842,70 +1692,52 @@ function SimpleSpy:newButton(name, description, onClick)
     return newButton(name, description, onClick)
 end
 
-newButton(
-    "复制代码",
-    function() return "点击复制代码" end,
-    function()
-        setclipboard(codebox:getString())
-        TextLabel.Text = "复制成功！"
+newButton("复制代码", function() return "点击复制代码" end, function()
+    setclipboard(codebox:getString())
+    TextLabel.Text = "复制成功！"
+end)
+
+newButton("复制远程", function() return "点击复制远程路径" end, function()
+    if selected and selected.Remote then
+        setclipboard(v2s(selected.Remote))
+        TextLabel.Text = "已复制！"
     end
-)
+end)
 
-newButton(
-    "复制远程",
-    function() return "点击复制远程路径" end,
-    function()
-        if selected and selected.Remote then
-            setclipboard(v2s(selected.Remote))
-            TextLabel.Text = "已复制！"
-        end
-    end
-)
-
-newButton("运行代码",
-    function() return "点击执行代码" end,
-    function()
-        local Remote = selected and selected.Remote
-        if Remote then
-            TextLabel.Text = "执行中..."
-            xpcall(function()
-                local returnvalue
-                if Remote:IsA("RemoteEvent") or Remote:IsA("UnreliableRemoteEvent") then
-                    returnvalue = Remote:FireServer(unpack(selected.args))
-                elseif Remote:IsA("RemoteFunction") then
-                    returnvalue = Remote:InvokeServer(unpack(selected.args))
-                end
-
-                TextLabel.Text = ("执行成功！\n%s"):format(v2s(returnvalue))
-            end,function(err)
-                TextLabel.Text = ("执行错误！\n%s"):format(err)
-            end)
-            return
-        end
-        TextLabel.Text = "未找到来源"
-    end
-)
-
-newButton(
-    "获取脚本",
-    function() return "点击复制调用脚本到剪贴板\n警告：并非完全可靠，nil 表示未找到" end,
-    function()
-        if selected then
-            if not selected.Source then
-                selected.Source = rawget(getfenv(selected.Function),"script")
+newButton("运行代码", function() return "点击执行代码" end, function()
+    local Remote = selected and selected.Remote
+    if Remote then
+        TextLabel.Text = "执行中..."
+        xpcall(function()
+            local returnvalue
+            if Remote:IsA("RemoteEvent") or Remote:IsA("UnreliableRemoteEvent") then
+                returnvalue = Remote:FireServer(unpack(selected.args))
+            elseif Remote:IsA("RemoteFunction") then
+                returnvalue = Remote:InvokeServer(unpack(selected.args))
             end
-            setclipboard(v2s(selected.Source))
-            TextLabel.Text = "完成！"
-        end
+            TextLabel.Text = ("执行成功！\n%s"):format(v2s(returnvalue))
+        end,function(err)
+            TextLabel.Text = ("执行错误！\n%s"):format(err)
+        end)
+        return
     end
-)
+    TextLabel.Text = "未找到来源"
+end)
 
-newButton("函数信息",function() return "点击查看调用函数信息" end,
-function()
+newButton("获取脚本", function() return "点击复制调用脚本到剪贴板\n警告：并非完全可靠，nil 表示未找到" end, function()
+    if selected then
+        if not selected.Source then
+            selected.Source = rawget(getfenv(selected.Function),"script")
+        end
+        setclipboard(v2s(selected.Source))
+        TextLabel.Text = "完成！"
+    end
+end)
+
+newButton("函数信息", function() return "点击查看调用函数信息" end, function()
     local func = selected and selected.Function
     if func then
         local typeoffunc = typeof(func)
-
         if typeoffunc ~= 'string' then
             codebox:setRaw("--[[正在生成函数信息，请稍候]]")
             RunService.Heartbeat:Wait()
@@ -1913,20 +1745,17 @@ function()
             local SourceScript = rawget(getfenv(func),"script")
             local CallingScript = selected.Source or nil
             local info = {}
-            
             info = {
                 info = getinfo(func),
-                constants = lclosure and deepclone(getconstants(func)) or "N/A --需要 Lua 闭包，得到 C 闭包",
+                constants = lclosure and deepclone(getconstants(func)) or "N/A",
                 upvalues = deepclone(getupvalues(func)),
                 script = {
                     SourceScript = SourceScript or 'nil',
                     CallingScript = CallingScript or 'nil'
                 }
             }
-                    
             if configs.advancedinfo then
                 local Remote = selected.Remote
-
                 info["advancedinfo"] = {
                     Metamethod = selected.metamethod,
                     DebugId = {
@@ -1934,14 +1763,12 @@ function()
                         CallingScriptDebugId = CallingScript and typeof(SourceScript) == "Instance" and OldDebugId(CallingScript) or "N/A",
                         RemoteDebugId = OldDebugId(Remote)
                     },
-                    Protos = lclosure and getprotos(func) or "N/A --需要 Lua 闭包，得到 C 闭包"
+                    Protos = lclosure and getprotos(func) or "N/A"
                 }
-
                 if Remote:IsA("RemoteFunction") then
-                    info["advancedinfo"]["OnClientInvoke"] = getcallbackmember and (getcallbackmember(Remote,"OnClientInvoke") or "N/A") or "N/A --缺少 getcallbackmember 函数"
+                    info["advancedinfo"]["OnClientInvoke"] = getcallbackmember and (getcallbackmember(Remote,"OnClientInvoke") or "N/A") or "N/A"
                 elseif getconnections then
                     info["advancedinfo"]["OnClientEvents"] = {}
-
                     for i,v in next, getconnections(Remote.OnClientEvent) do
                         info["advancedinfo"]["OnClientEvents"][i] = {
                             Function = v.Function or "N/A",
@@ -1954,159 +1781,112 @@ function()
             selected.Function = v2v({functionInfo = info})
         end
         codebox:setRaw("-- 调用函数信息\n-- 由 SimpleSpy V3 序列化器生成\n\n"..selected.Function)
-        TextLabel.Text = "完成！函数信息已由 SimpleSpy V3 序列化器生成。"
+        TextLabel.Text = "完成！"
     else
         TextLabel.Text = "错误！未找到选中的函数。"
     end
 end)
 
-newButton(
-    "清除日志",
-    function() return "点击清除日志" end,
-    function()
-        TextLabel.Text = "清除中..."
-        clear(logs)
-        for i,v in next, LogList:GetChildren() do
-            if not v:IsA("UIListLayout") then
-                v:Destroy()
-            end
-        end
-        codebox:setRaw("")
-        selected = nil
-        TextLabel.Text = "日志已清除！"
-    end
-)
-
-newButton(
-    "排除 (实例)",
-    function() return "点击排除此远程\n排除后 SimpleSpy 将忽略它，但远程仍可使用。" end,
-    function()
-        if selected then
-            blacklist[OldDebugId(selected.Remote)] = true
-            TextLabel.Text = "已排除！"
+newButton("清除日志", function() return "点击清除日志" end, function()
+    TextLabel.Text = "清除中..."
+    clear(logs)
+    for i,v in next, LogList:GetChildren() do
+        if not v:IsA("UIListLayout") then
+            v:Destroy()
         end
     end
-)
+    codebox:setRaw("")
+    selected = nil
+    TextLabel.Text = "日志已清除！"
+end)
 
-newButton(
-    "排除 (名称)",
-    function() return "点击排除所有同名远程\n排除后 SimpleSpy 将忽略它们，但远程仍可使用。" end,
-    function()
-        if selected then
-            blacklist[selected.Name] = true
-            TextLabel.Text = "已排除！"
-        end
+newButton("排除 (实例)", function() return "点击排除此远程\n排除后 SimpleSpy 将忽略它，但远程仍可使用。" end, function()
+    if selected then
+        blacklist[OldDebugId(selected.Remote)] = true
+        TextLabel.Text = "已排除！"
     end
-)
+end)
 
-newButton("清除排除列表",
-function() return "点击清除排除列表\n排除后 SimpleSpy 将忽略远程，但远程仍可使用。" end,
-function()
+newButton("排除 (名称)", function() return "点击排除所有同名远程\n排除后 SimpleSpy 将忽略它们，但远程仍可使用。" end, function()
+    if selected then
+        blacklist[selected.Name] = true
+        TextLabel.Text = "已排除！"
+    end
+end)
+
+newButton("清除排除列表", function() return "点击清除排除列表" end, function()
     blacklist = {}
     TextLabel.Text = "排除列表已清除！"
 end)
 
-newButton(
-    "阻止 (实例)",
-    function() return "点击阻止此远程发送到服务器\n阻止后仍会记录，但不会实际触发。" end,
-    function()
-        if selected then
-            blocklist[OldDebugId(selected.Remote)] = true
-            TextLabel.Text = "已排除！"
-        end
+newButton("阻止 (实例)", function() return "点击阻止此远程发送到服务器\n阻止后仍会记录，但不会实际触发。" end, function()
+    if selected then
+        blocklist[OldDebugId(selected.Remote)] = true
+        TextLabel.Text = "已排除！"
     end
-)
+end)
 
-newButton("阻止 (名称)",function()
-    return "点击阻止所有同名远程发送到服务器\n阻止后仍会记录，但不会实际触发。" end,
-    function()
-        if selected then
-            blocklist[selected.Name] = true
-            TextLabel.Text = "已排除！"
-        end
+newButton("阻止 (名称)", function() return "点击阻止所有同名远程发送到服务器\n阻止后仍会记录，但不会实际触发。" end, function()
+    if selected then
+        blocklist[selected.Name] = true
+        TextLabel.Text = "已排除！"
     end
-)
+end)
 
-newButton(
-    "清除阻止列表",
-    function() return "点击清除阻止列表" end,
-    function()
-        blocklist = {}
-        TextLabel.Text = "阻止列表已清除！"
-    end
-)
+newButton("清除阻止列表", function() return "点击清除阻止列表" end, function()
+    blocklist = {}
+    TextLabel.Text = "阻止列表已清除！"
+end)
 
-newButton("反编译",
-    function()
-        return "反编译源脚本"
-    end,function()
-        if decompile then
-            if selected and selected.Source then
-                local Source = selected.Source
-                if not DecompiledScripts[Source] then
-                    codebox:setRaw("--[[反编译中]]")
-
-                    xpcall(function()
-                        local decompiledsource = decompile(Source):gsub("-- Decompiled with the Synapse X Luau decompiler.","")
-                        local Sourcev2s = v2s(Source)
-                        if (decompiledsource):find("script") and Sourcev2s then
-                            DecompiledScripts[Source] = ("local script = %s\n%s"):format(Sourcev2s,decompiledsource)
-                        end
-                    end,function(err)
-                        return codebox:setRaw(("--[[\n发生错误\n%s\n]]"):format(err))
-                    end)
-                end
-                codebox:setRaw(DecompiledScripts[Source] or "--未找到来源")
-                TextLabel.Text = "完成！"
-            else
-                TextLabel.Text = "未找到来源！"
+newButton("反编译", function() return "反编译源脚本" end, function()
+    if decompile then
+        if selected and selected.Source then
+            local Source = selected.Source
+            if not DecompiledScripts[Source] then
+                codebox:setRaw("--[[反编译中]]")
+                xpcall(function()
+                    local decompiledsource = decompile(Source):gsub("-- Decompiled with the Synapse X Luau decompiler.","")
+                    local Sourcev2s = v2s(Source)
+                    if (decompiledsource):find("script") and Sourcev2s then
+                        DecompiledScripts[Source] = ("local script = %s\n%s"):format(Sourcev2s,decompiledsource)
+                    end
+                end,function(err)
+                    return codebox:setRaw(("--[[\n发生错误\n%s\n]]"):format(err))
+                end)
             end
+            codebox:setRaw(DecompiledScripts[Source] or "--未找到来源")
+            TextLabel.Text = "完成！"
         else
-            TextLabel.Text = "缺少反编译函数 (decompile)"
+            TextLabel.Text = "未找到来源！"
         end
+    else
+        TextLabel.Text = "缺少反编译函数 (decompile)"
     end
-)
+end)
 
-newButton(
-    "禁用信息",
-    function() return string.format("[%s] 切换函数信息（在某些游戏中可能造成卡顿）", configs.funcEnabled and "启用" or "禁用") end,
-    function()
-        configs.funcEnabled = not configs.funcEnabled
-        TextLabel.Text = string.format("[%s] 切换函数信息（在某些游戏中可能造成卡顿）", configs.funcEnabled and "启用" or "禁用")
-    end
-)
+newButton("禁用信息", function() return string.format("[%s] 切换函数信息（在某些游戏中可能造成卡顿）", configs.funcEnabled and "启用" or "禁用") end, function()
+    configs.funcEnabled = not configs.funcEnabled
+    TextLabel.Text = string.format("[%s] 切换函数信息", configs.funcEnabled and "启用" or "禁用")
+end)
 
-newButton(
-    "自动阻止",
-    function() return string.format("[%s] [测试版] 智能检测并排除日志中的高频远程调用", configs.autoblock and "启用" or "禁用") end,
-    function()
-        configs.autoblock = not configs.autoblock
-        TextLabel.Text = string.format("[%s] [测试版] 智能检测并排除日志中的高频远程调用", configs.autoblock and "启用" or "禁用")
-        history = {}
-        excluding = {}
-    end
-)
+newButton("自动阻止", function() return string.format("[%s] [测试版] 智能检测并排除日志中的高频远程调用", configs.autoblock and "启用" or "禁用") end, function()
+    configs.autoblock = not configs.autoblock
+    TextLabel.Text = string.format("[%s] 自动阻止", configs.autoblock and "启用" or "禁用")
+    history = {}
+    excluding = {}
+end)
 
-newButton("记录调用者检查",function()
-    return ("[%s] 记录由客户端触发的远程调用"):format(configs.logcheckcaller and "启用" or "禁用")
-end,
-function()
+newButton("记录调用者检查", function() return ("[%s] 记录由客户端触发的远程调用"):format(configs.logcheckcaller and "启用" or "禁用") end, function()
     configs.logcheckcaller = not configs.logcheckcaller
-    TextLabel.Text = ("[%s] 记录由客户端触发的远程调用"):format(configs.logcheckcaller and "启用" or "禁用")
+    TextLabel.Text = ("[%s] 记录调用者检查"):format(configs.logcheckcaller and "启用" or "禁用")
 end)
 
-newButton("高级信息",function()
-    return ("[%s] 显示更多远程信息"):format(configs.advancedinfo and "启用" or "禁用")
-end,
-function()
+newButton("高级信息", function() return ("[%s] 显示更多远程信息"):format(configs.advancedinfo and "启用" or "禁用") end, function()
     configs.advancedinfo = not configs.advancedinfo
-    TextLabel.Text = ("[%s] 显示更多远程信息"):format(configs.advancedinfo and "启用" or "禁用")
+    TextLabel.Text = ("[%s] 高级信息"):format(configs.advancedinfo and "启用" or "禁用")
 end)
 
-newButton("加入 Discord",function()
-    return "加入 Simple Spy Discord 服务器"
-end,
-function()
+newButton("加入 Discord", function() return "加入 Simple Spy Discord 服务器" end, function()
     setclipboard("https://discord.com/invite/AWS6ez9")
     TextLabel.Text = "邀请链接已复制到剪贴板"
     if request then
@@ -2115,23 +1895,14 @@ function()
 end)
 
 if configs.supersecretdevtoggle then
-    newButton("加载 SSV2.2",function()
-        return "加载 Simple Spy V2.2"
-    end,
-    function()
+    newButton("加载 SSV2.2", function() return "加载 Simple Spy V2.2" end, function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/exxtremestuffs/SimpleSpySource/master/SimpleSpy.lua"))()
     end)
-    newButton("加载 SSV3",function()
-        return "加载 Simple Spy V3"
-    end,
-    function()
+    newButton("加载 SSV3", function() return "加载 Simple Spy V3" end, function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/78n/SimpleSpy/main/SimpleSpySource.lua"))()
     end)
     local SuperSecretFolder = Create("Folder",{Parent = SimpleSpy3})
-    newButton("超级秘密按钮",function()
-        return "你不需要描述，你已知道它的作用"
-    end,
-    function()
+    newButton("超级秘密按钮", function() return "你不需要描述，你已知道它的作用" end, function()
         SuperSecretFolder:ClearAllChildren()
         local random = listfiles("Music")
         local NotSound = Create("Sound",{Parent = SuperSecretFolder,Looped = false,Volume = math.random(1,5),SoundId = getsynasset(random[math.random(1,#random)])})
