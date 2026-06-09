@@ -100,9 +100,6 @@ local chapter2Spawn = Vector3.new(291.00, 17.83 + 3, 2405.50)
 local chapter1Spawn = Vector3.new(2099.25, -22.72 + 3, -1921.75)
 local garagePosition = Vector3.new(2201.70, -22.72 + 3, -1950.17)
 
-local katanaActivate = replicatedStorage:WaitForChild("ToolEvents"):WaitForChild("Katana"):WaitForChild("katana_activate")
-local katanaDeactivate = replicatedStorage:WaitForChild("ToolEvents"):WaitForChild("Katana"):WaitForChild("katana_deactivate")
-
 local monsterEspEnabled = false
 local monsterHighlights = {}
 local screenDistanceLabel
@@ -354,10 +351,7 @@ local function clearSoulESP()
     soulBillboards = {}
 end
 
-local daylightEnabled = false
-local daylightLoopThread = nil
-local configLoaded = false
-
+-- 天亮功能（单点按钮，只开启）
 local function daylightCleanup()
     pcall(function()
         local lighting = game:GetService("Lighting")
@@ -414,88 +408,98 @@ local function ensureInvisTag()
     return existing
 end
 
+local function getKatanaEvents()
+    local toolEvents = replicatedStorage:FindFirstChild("ToolEvents")
+    if not toolEvents then return nil, nil end
+    local katanaFolder = toolEvents:FindFirstChild("Katana")
+    if not katanaFolder then return nil, nil end
+    return katanaFolder:FindFirstChild("katana_activate"), katanaFolder:FindFirstChild("katana_deactivate")
+end
+
+local function isCorrectCharacter()
+    local char = player.Character
+    if not char then return false end
+    local katanaHandle = char:FindFirstChild("Katana")
+    if katanaHandle then
+        local handle = katanaHandle:FindFirstChild("Handle")
+        if handle then
+            local scaleType = handle:FindFirstChild("AvatarPartScaleType")
+            if scaleType and scaleType:IsA("StringValue") then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 local function startForceInvis()
     if forceInvisEnabled then return end
+    if not isCorrectCharacter() then
+        Fluent:Notify({ Title = "无法使用", Content = "您可能未使用正确的角色，此功能仅限肯奇·福地莫托", Duration = 4 })
+        return
+    end
+    local activate, _ = getKatanaEvents()
+    if not activate then
+        Fluent:Notify({ Title = "错误", Content = "未找到隐身事件，请尝试重新装备武士刀", Duration = 4 })
+        return
+    end
     forceInvisEnabled = true
     invisTag = ensureInvisTag()
-    pcall(function() katanaActivate:FireServer() end)
+    pcall(function() activate:FireServer() end)
     invisHeartbeat = RunService.Heartbeat:Connect(function()
         if not invisTag or not invisTag.Parent then
             invisTag = ensureInvisTag()
         end
-        pcall(function() katanaActivate:FireServer() end)
+        pcall(function() activate:FireServer() end)
         task.wait(2)
     end)
-end
-
-local function stopForceInvis()
-    forceInvisEnabled = false
-    if invisHeartbeat then
-        invisHeartbeat:Disconnect()
-        invisHeartbeat = nil
-    end
+    Fluent:Notify({ Title = "隐身", Content = "已开启，怪物将完全无视你", Duration = 2 })
 end
 
 player.CharacterAdded:Connect(function(char)
     if forceInvisEnabled then
         task.wait(0.5)
+        if not isCorrectCharacter() then
+            forceInvisEnabled = false
+            if invisHeartbeat then invisHeartbeat:Disconnect(); invisHeartbeat = nil end
+            return
+        end
         invisTag = ensureInvisTag()
-        pcall(function() katanaActivate:FireServer() end)
+        local activate, _ = getKatanaEvents()
+        if activate then
+            pcall(function() activate:FireServer() end)
+        end
     end
 end)
 
--- 主要标签页按钮顺序：隐身 > 天亮 > 惊喜
-Tabs.Main:AddToggle("Invisibility", {
+-- 主要标签页：隐身（按钮） -> 天亮（按钮） -> 惊喜（按钮）
+Tabs.Main:AddButton({
     Title = "隐身",
-    Description = "开启后永久有效，无法关闭",
-    Default = false,
-    Callback = function(state)
-        if state then
-            Window:Dialog({
-                Title = "角色限制提醒",
-                Content = "此功能需要拥有武士刀技能的角色才能生效\n怪物将无法看到你，但靠近时仍可能被杀死",
-                Buttons = {
-                    {
-                        Title = "确认",
-                        Callback = function()
-                            startForceInvis()
-                        end
-                    },
-                    {
-                        Title = "取消",
-                        Callback = function() end
-                    }
-                }
-            })
-        else
-            stopForceInvis()
-        end
+    Description = "点击后永久隐身，触碰怪物也不会死",
+    Callback = function()
+        Window:Dialog({
+            Title = "开启隐身",
+            Content = "此功能仅限肯奇·福地莫托角色使用！\n开启后怪物将完全无视你，触碰也不会死亡。\n点击确认后立即生效且无法关闭。",
+            Buttons = {
+                { Title = "确认", Callback = startForceInvis },
+                { Title = "取消", Callback = function() end }
+            }
+        })
     end
 })
 
-Tabs.Main:AddToggle("Daylight", {
+Tabs.Main:AddButton({
     Title = "天亮",
-    Description = "没有黑暗 只有光明",
-    Default = false,
-    Callback = function(state)
-        if not configLoaded then return end
-        daylightEnabled = state
-        if state then
-            daylightCleanup()
-            daylightLoopThread = task.spawn(function()
-                while daylightEnabled do
-                    daylightCleanup()
-                    task.wait(2)
-                end
-            end)
-            Fluent:Notify({ Title = "天亮", Content = "画面已净化", Duration = 2 })
-        else
-            if daylightLoopThread then
-                task.cancel(daylightLoopThread)
-                daylightLoopThread = nil
+    Description = "让画面永远光明",
+    Callback = function()
+        daylightCleanup()
+        task.spawn(function()
+            while true do
+                daylightCleanup()
+                task.wait(2)
             end
-            Fluent:Notify({ Title = "天亮", Content = "已关闭", Duration = 2 })
-        end
+        end)
+        Fluent:Notify({ Title = "天亮", Content = "画面已净化，将持续保持", Duration = 2 })
     end
 })
 
@@ -1081,4 +1085,3 @@ SaveManager:BuildConfigSection(Tabs.Other)
 
 Window:SelectTab(1)
 SaveManager:LoadAutoloadConfig()
-configLoaded = true
