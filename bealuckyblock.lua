@@ -104,128 +104,6 @@ task.spawn(function()
     end
 end)
 
-local function ShowAnnouncement(callback)
-    local announcementGui = Instance.new("ScreenGui")
-    announcementGui.Name = "Announcement"
-    announcementGui.ResetOnSpawn = false
-    announcementGui.Parent = game:GetService("CoreGui")
-
-    local overlay = Instance.new("Frame")
-    overlay.Size = UDim2.fromScale(1, 1)
-    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    overlay.BackgroundTransparency = 0.6
-    overlay.BorderSizePixel = 0
-    overlay.Parent = announcementGui
-
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.fromOffset(320, 320)
-    frame.Position = UDim2.fromScale(0.5, 0.5)
-    frame.AnchorPoint = Vector2.new(0.5, 0.5)
-    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    frame.BorderSizePixel = 0
-    frame.BackgroundTransparency = 1
-    frame.Parent = announcementGui
-
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Thickness = 2
-    stroke.Color = Color3.fromRGB(255, 215, 0)
-    stroke.Transparency = 0.3
-    stroke.Parent = frame
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.fromScale(1, 0.15)
-    title.Position = UDim2.fromOffset(0, 15)
-    title.BackgroundTransparency = 1
-    title.Text = "📢 成为幸运方块Hub"
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.TextSize = 20
-    title.Font = Enum.Font.SourceSansBold
-    title.Parent = frame
-
-    local line = Instance.new("Frame")
-    line.Size = UDim2.fromScale(0.85, 0.005)
-    line.Position = UDim2.fromOffset(24, 50)
-    line.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-    line.BorderSizePixel = 0
-    line.Parent = frame
-
-    local content = Instance.new("TextLabel")
-    content.Size = UDim2.new(0.85, 0, 0.6, 0)
-    content.Position = UDim2.fromOffset(24, 62)
-    content.BackgroundTransparency = 1
-    content.Text = [[小梦制作
-
-更新日期：]] .. os.date("%Y-%m-%d %H:%M:%S") .. [[
-
-本次更新内容：
-• 删除了自动升级速度的功能
-• 自动刷脑红目标改为僧侣位置
-• 自选Boss免疫新增了僧侣怪物屏蔽
-• 兑换码功能更新了，快去领取吧
-
-放心使用吧！]]
-    content.TextColor3 = Color3.fromRGB(220, 220, 220)
-    content.TextSize = 13
-    content.Font = Enum.Font.SourceSans
-    content.TextWrapped = true
-    content.TextXAlignment = Enum.TextXAlignment.Left
-    content.LineHeight = 1.4
-    content.Parent = frame
-
-    local button = Instance.new("TextButton")
-    button.Size = UDim2.fromOffset(110, 34)
-    button.Position = UDim2.new(0.5, -55, 0.86, 0)
-    button.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-    button.Text = "我明白"
-    button.TextColor3 = Color3.fromRGB(0, 0, 0)
-    button.TextSize = 15
-    button.Font = Enum.Font.SourceSansBold
-    button.BorderSizePixel = 0
-    button.Parent = frame
-    Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
-
-    local buttonStroke = Instance.new("UIStroke")
-    buttonStroke.Thickness = 1
-    buttonStroke.Color = Color3.fromRGB(255, 255, 255)
-    buttonStroke.Transparency = 0.5
-    buttonStroke.Parent = button
-
-    button.MouseEnter:Connect(function()
-        button.BackgroundColor3 = Color3.fromRGB(255, 235, 100)
-    end)
-    button.MouseLeave:Connect(function()
-        button.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-    end)
-
-    local TweenService = game:GetService("TweenService")
-    frame.BackgroundTransparency = 1
-    frame.Size = UDim2.fromOffset(0, 0)
-
-    local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-    local goals = {
-        BackgroundTransparency = 0,
-        Size = UDim2.fromOffset(320, 320)
-    }
-    local tween = TweenService:Create(frame, tweenInfo, goals)
-    tween:Play()
-
-    button.MouseButton1Click:Connect(function()
-        local closeTweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-        local closeGoals = {
-            BackgroundTransparency = 1,
-            Size = UDim2.fromOffset(0, 0)
-        }
-        local closeTween = TweenService:Create(frame, closeTweenInfo, closeGoals)
-        closeTween:Play()
-        closeTween.Completed:Connect(function()
-            announcementGui:Destroy()
-            callback()
-        end)
-    end)
-end
-
 local Window = Fluent:CreateWindow({
     Title = "成为幸运方块Hub",
     SubTitle = "by.小梦",
@@ -315,10 +193,8 @@ do
         button:TweenSize(UDim2.fromOffset(50, 50), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
     end)
 
-    ShowAnnouncement(function()
-        screenGui.Enabled = true
-        Window.Root.Visible = true
-    end)
+    screenGui.Enabled = true
+    Window.Root.Visible = true
 end
 
 local Players = game:GetService("Players")
@@ -745,7 +621,7 @@ do
     local selectedBosses = {}
     
     local bossOptions = {}
-    for i = 1, 17 do
+    for i = 1, 18 do
         table.insert(bossOptions, "base" .. i)
     end
     
@@ -880,7 +756,7 @@ do
         return ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("EventService"):WaitForChild("RF"):WaitForChild("CollectEgg")
     end)
     if not success or not CollectEggRemote then
-        warn("[蜜块] 远程事件获取失败")
+        warn("[猫爪] 远程事件获取失败")
         return
     end
 
@@ -901,7 +777,7 @@ do
     local function suppressBossesExcept1and17()
         if not BossFolder then return end
         pcall(function()
-            for i = 1, 17 do
+            for i = 1, 18 do
                 if i == 1 or i == 17 then
                     local boss = BossFolder:FindFirstChild("base" .. i)
                     if boss then
@@ -996,7 +872,7 @@ do
     end
 
     local toggle = Tabs.Easter:AddToggle("AutoEggFarm", {
-        Title = "快速拾取蜜块",
+        Title = "快速拾取猫爪",
         Description = "自动传送、屏蔽Boss(保留1和17)、高速拾取",
         Default = false
     })
@@ -1005,10 +881,10 @@ do
         autoEnabled = state
         if state then
             startListening()
-            Fluent:Notify({ Title = "蜜块", Content = "开始自动刷取", Duration = 2 })
+            Fluent:Notify({ Title = "猫爪", Content = "开始自动刷取", Duration = 2 })
         else
             stopListening()
-            Fluent:Notify({ Title = "蜜块", Content = "已停止", Duration = 2 })
+            Fluent:Notify({ Title = "猫爪", Content = "已停止", Duration = 2 })
         end
     end)
     Options.AutoEggFarm:SetValue(false)
