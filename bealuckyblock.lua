@@ -29,7 +29,7 @@ if not FluentBuilder then
     frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     frame.BorderSizePixel = 0
     Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
-    
+
     local title = Instance.new("TextLabel", frame)
     title.Size = UDim2.new(1, -20, 0, 30)
     title.Position = UDim2.new(0, 10, 0, 10)
@@ -68,40 +68,34 @@ local Fluent = FluentBuilder()
 local SaveManager = SaveManagerBuilder()
 local InterfaceManager = InterfaceManagerBuilder()
 
-local AUTHOR_IDS = {
-    7483594265
-}
+local AUTHOR_IDS = { 7483594265 }
+
+local function getAllBaseNames(folder)
+    local names = {}
+    for _, obj in ipairs(folder:GetChildren()) do
+        if obj.Name:match("^base%d+$") then
+            table.insert(names, obj.Name)
+        end
+    end
+    table.sort(names, function(a, b) return tonumber(a:match("%d+")) < tonumber(b:match("%d+")) end)
+    return names
+end
 
 task.spawn(function()
     local removedCount = 0
-
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj.Name == "STARTER_PACK" then
-            pcall(function()
-                obj:Destroy()
-                removedCount = removedCount + 1
-            end)
-        end
+        if obj.Name == "STARTER_PACK" then pcall(function() obj:Destroy(); removedCount = removedCount + 1 end) end
     end
-
     local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
     if playerGui then
         local hudFolder = playerGui:FindFirstChild("HUD") or playerGui:FindFirstChild("Hud")
         if hudFolder then
             for _, obj in ipairs(hudFolder:GetDescendants()) do
-                if obj.Name == "STARTER_PACK" then
-                    pcall(function()
-                        obj:Destroy()
-                        removedCount = removedCount + 1
-                    end)
-                end
+                if obj.Name == "STARTER_PACK" then pcall(function() obj:Destroy(); removedCount = removedCount + 1 end) end
             end
         end
     end
-
-    if removedCount > 0 then
-        print(string.format("✅ 自动清理完成：删除 %d 个 STARTER_PACK 文件", removedCount))
-    end
+    if removedCount > 0 then print(string.format("✅ 自动清理完成：删除 %d 个 STARTER_PACK 文件", removedCount)) end
 end)
 
 local Window = Fluent:CreateWindow({
@@ -113,7 +107,6 @@ local Window = Fluent:CreateWindow({
     Theme = "Darker",
     MinimizeKey = Enum.KeyCode.LeftControl
 })
-
 Window.Root.Visible = false
 
 local Tabs = {
@@ -124,7 +117,6 @@ local Tabs = {
     Speed = Window:AddTab({ Title = "速度", Icon = "gauge" }),
     Settings = Window:AddTab({ Title = "设置", Icon = "settings" })
 }
-
 local Options = Fluent.Options
 
 do
@@ -134,7 +126,6 @@ do
     screenGui.ResetOnSpawn = false
     screenGui.Parent = game:GetService("CoreGui")
     screenGui.Enabled = false
-
     local button = Instance.new("ImageButton")
     button.Size = UDim2.fromOffset(50, 50)
     button.Position = UDim2.fromOffset(100, 100)
@@ -145,54 +136,36 @@ do
     button.ScaleType = Enum.ScaleType.Fit
     button.AutoButtonColor = false
     button.Parent = screenGui
-
     Instance.new("UICorner", button).CornerRadius = UDim.new(1, 0)
     local stroke = Instance.new("UIStroke", button)
     stroke.Thickness = 1
     stroke.Color = Color3.fromRGB(100, 100, 100)
     stroke.Transparency = 0.5
-
     local dragging = false
     local dragStartPos = nil
     local buttonStartPos = nil
     local userInputService = game:GetService("UserInputService")
-
     button.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStartPos = input.Position
             buttonStartPos = button.Position
             input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                    dragStartPos = nil
-                    buttonStartPos = nil
-                end
+                if input.UserInputState == Enum.UserInputState.End then dragging = false; dragStartPos = nil; buttonStartPos = nil end
             end)
         end
     end)
-
     userInputService.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - dragStartPos
-            button.Position = UDim2.fromOffset(
-                buttonStartPos.X.Offset + delta.X,
-                buttonStartPos.Y.Offset + delta.Y
-            )
+            button.Position = UDim2.fromOffset(buttonStartPos.X.Offset + delta.X, buttonStartPos.Y.Offset + delta.Y)
         end
     end)
-
     button.MouseButton1Click:Connect(function()
         if Window.Root then Window.Root.Visible = not Window.Root.Visible end
     end)
-
-    button.MouseEnter:Connect(function()
-        button:TweenSize(UDim2.fromOffset(55, 55), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
-    end)
-    button.MouseLeave:Connect(function()
-        button:TweenSize(UDim2.fromOffset(50, 50), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
-    end)
-
+    button.MouseEnter:Connect(function() button:TweenSize(UDim2.fromOffset(55, 55), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true) end)
+    button.MouseLeave:Connect(function() button:TweenSize(UDim2.fromOffset(50, 50), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true) end)
     screenGui.Enabled = true
     Window.Root.Visible = true
 end
@@ -206,10 +179,7 @@ Tabs.Info:AddParagraph({ Title = "您的用户名", Content = " " .. player.Name
 Tabs.Info:AddParagraph({ Title = "您的用户ID", Content = " " .. player.UserId })
 
 local clientId = "未知"
-pcall(function()
-    if getclientid then clientId = getclientid()
-    else clientId = game:GetService("RbxAnalyticsService"):GetClientId() end
-end)
+pcall(function() if getclientid then clientId = getclientid() else clientId = game:GetService("RbxAnalyticsService"):GetClientId() end end)
 Tabs.Info:AddParagraph({ Title = "您的客户端ID", Content = " " .. clientId })
 
 local region = "未知"
@@ -223,9 +193,7 @@ pcall(function()
         end
     end
 end)
-if region == "未知" then
-    pcall(function() region = game:GetService("LocalizationService").RobloxLocaleId or "未知" end)
-end
+if region == "未知" then pcall(function() region = game:GetService("LocalizationService").RobloxLocaleId or "未知" end) end
 Tabs.Info:AddParagraph({ Title = "您的地区", Content = " " .. region })
 
 local language = "未知"
@@ -267,11 +235,7 @@ task.spawn(function()
         local fpsValue = "N/A"
         pcall(function() fpsValue = math.floor(1 / RunService.Heartbeat:Wait()) .. " FPS" end)
         local timeString = os.date("%H:%M:%S")
-        pcall(function()
-            pingParagraph:SetDesc(" " .. pingValue)
-            fpsParagraph:SetDesc(" " .. fpsValue)
-            timeParagraph:SetDesc(" " .. timeString)
-        end)
+        pcall(function() pingParagraph:SetDesc(" " .. pingValue); fpsParagraph:SetDesc(" " .. fpsValue); timeParagraph:SetDesc(" " .. timeString) end)
         task.wait(0.5)
     end
 end)
@@ -285,7 +249,6 @@ local function createAuthorTag(character, playerName)
     if authorTags[character] then return end
     local head = character:WaitForChild(HEAD_PART_NAME, 10)
     if not head then return end
-
     local billboard = Instance.new("BillboardGui")
     billboard.Adornee = head
     billboard.Size = UDim2.new(0, 200, 0, 50)
@@ -293,7 +256,6 @@ local function createAuthorTag(character, playerName)
     billboard.AlwaysOnTop = true
     billboard.MaxDistance = 300
     billboard.Name = "AuthorTag"
-
     local background = Instance.new("Frame")
     background.Size = UDim2.new(0, 80, 0, 26)
     background.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -302,12 +264,10 @@ local function createAuthorTag(character, playerName)
     background.BorderSizePixel = 0
     background.Parent = billboard
     Instance.new("UICorner", background).CornerRadius = UDim.new(0, 6)
-
     local stroke = Instance.new("UIStroke")
     stroke.Thickness = 2
     stroke.Color = Color3.fromRGB(255, 0, 0)
     stroke.Parent = background
-
     local textLabel = Instance.new("TextLabel")
     textLabel.Size = UDim2.fromScale(1, 1)
     textLabel.BackgroundTransparency = 1
@@ -318,19 +278,14 @@ local function createAuthorTag(character, playerName)
     textLabel.Font = Enum.Font.SourceSansBold
     textLabel.TextSize = 18
     textLabel.Parent = background
-
     billboard.Parent = game:GetService("CoreGui")
     authorTags[character] = { billboard = billboard, stroke = stroke, textLabel = textLabel }
-
     local hue = 0
     task.spawn(function()
         while authorTags[character] do
             hue = (hue + 0.02) % 1
             local color = Color3.fromHSV(hue, 1, 1)
-            pcall(function()
-                textLabel.TextColor3 = color
-                stroke.Color = Color3.fromHSV((hue + 0.5) % 1, 1, 1)
-            end)
+            pcall(function() textLabel.TextColor3 = color; stroke.Color = Color3.fromHSV((hue + 0.5) % 1, 1, 1) end)
             task.wait(0.05)
         end
     end)
@@ -343,8 +298,7 @@ end
 
 local function showAuthorNotification()
     if authorNotificationGui then authorNotificationGui:Destroy() end
-    local gui = Instance.new("ScreenGui"); gui.Name = "AuthorNotification"
-    gui.ResetOnSpawn = false; gui.Parent = game:GetService("CoreGui")
+    local gui = Instance.new("ScreenGui"); gui.Name = "AuthorNotification"; gui.ResetOnSpawn = false; gui.Parent = game:GetService("CoreGui")
     authorNotificationGui = gui
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 280, 0, 60)
@@ -359,13 +313,10 @@ local function showAuthorNotification()
     textLabel.Text = "检测到作者进入游戏"
     textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     textLabel.Font = Enum.Font.SourceSansBold; textLabel.TextSize = 16; textLabel.Parent = frame
-    task.delay(5, function()
-        if authorNotificationGui == gui then gui:Destroy(); authorNotificationGui = nil end
-    end)
+    task.delay(5, function() if authorNotificationGui == gui then gui:Destroy(); authorNotificationGui = nil end end)
 end
 
 local function isAuthor(p) for _, id in ipairs(AUTHOR_IDS) do if p.UserId == id then return true end end return false end
-
 local function onAuthorAdded(p)
     if not authorESPEnabled or p == player then return end
     if isAuthor(p) then
@@ -374,28 +325,12 @@ local function onAuthorAdded(p)
         p.CharacterAdded:Connect(function(char) createAuthorTag(char, p.Name) end)
     end
 end
-
 Players.PlayerAdded:Connect(onAuthorAdded)
 Players.PlayerRemoving:Connect(function(p) if authorTags[p.Character] then removeAuthorTag(p.Character) end end)
+local function startAuthorESP() authorESPEnabled = true; for _, p in ipairs(Players:GetPlayers()) do onAuthorAdded(p) end end
+local function stopAuthorESP() authorESPEnabled = false; for c, _ in pairs(authorTags) do removeAuthorTag(c) end end
 
-local function startAuthorESP()
-    authorESPEnabled = true
-    for _, p in ipairs(Players:GetPlayers()) do onAuthorAdded(p) end
-end
-
-local function stopAuthorESP()
-    authorESPEnabled = false
-    for c, _ in pairs(authorTags) do removeAuthorTag(c) end
-end
-
-Tabs.Info:AddToggle("AuthorESP", {
-    Title = "作者头街",
-    Default = true,
-    Callback = function(state)
-        if state then startAuthorESP() else stopAuthorESP() end
-    end
-})
-
+Tabs.Info:AddToggle("AuthorESP", { Title = "作者头街", Default = true, Callback = function(state) if state then startAuthorESP() else stopAuthorESP() end end })
 task.spawn(startAuthorESP)
 
 do
@@ -408,11 +343,7 @@ do
         if not state then return end
         task.spawn(function()
             while autoClaiming do
-                for reward = 1, 12 do
-                    if not autoClaiming then break end
-                    pcall(function() claimGift:InvokeServer(reward) end)
-                    task.wait(0.25)
-                end
+                for reward = 1, 12 do if not autoClaiming then break end; pcall(function() claimGift:InvokeServer(reward) end); task.wait(0.25) end
                 task.wait(1)
             end
         end)
@@ -428,20 +359,14 @@ do
     toggle:OnChanged(function(state)
         running = state
         if not state then return end
-        task.spawn(function()
-            while running do
-                pcall(function() rebirth:InvokeServer() end)
-                task.wait(1)
-            end
-        end)
+        task.spawn(function() while running do pcall(function() rebirth:InvokeServer() end); task.wait(1) end end)
     end)
     Options.AR:SetValue(false)
 end
 
 do
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local Players2 = game:GetService("Players")
-    local player2 = Players2.LocalPlayer
+    local Players2 = game:GetService("Players"); local player2 = Players2.LocalPlayer
     local claim = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("SeasonPassService"):WaitForChild("RF"):WaitForChild("ClaimPassReward")
     local running = false
     local toggle = Tabs.Auto:AddToggle("ACEPR", { Title = "自动领取活动通行证奖励", Default = false })
@@ -460,9 +385,7 @@ do
                         local claimed = free:FindFirstChild("Claimed")
                         while running and locked and locked.Visible do task.wait(0.2) end
                         if running and claimed and claimed.Visible then
-                        elseif running and locked and not locked.Visible then
-                            pcall(function() claim:InvokeServer("Free", i) end)
-                        end
+                        elseif running and locked and not locked.Visible then pcall(function() claim:InvokeServer("Free", i) end) end
                     end
                 end
                 task.wait(0.5)
@@ -474,14 +397,8 @@ end
 
 do
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local Players2 = game:GetService("Players")
-    local player2 = Players2.LocalPlayer
+    local Players2 = game:GetService("Players"); local player2 = Players2.LocalPlayer
     local buy = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("SkinService"):WaitForChild("RF"):WaitForChild("BuySkin")
-    local skins = {
-        "prestige_mogging_luckyblock", "mogging_luckyblock", "colossus_luckyblock",
-        "inferno_luckyblock", "divine_luckyblock", "spirit_luckyblock", "cyborg_luckyblock",
-        "void_luckyblock", "gliched_luckyblock", "lava_luckyblock", "freezy_luckyblock", "fairy_luckyblock"
-    }
     local suffix = { K = 1e3, M = 1e6, B = 1e9, T = 1e12, Qa = 1e15, Qi = 1e18, Sx = 1e21, Sp = 1e24, Oc = 1e27, No = 1e30, Dc = 1e33 }
     local function parseCash(text)
         text = text:gsub("%$", ""):gsub(",", ""):gsub("%s+", "")
@@ -507,12 +424,11 @@ do
                             local scrollingFrame = shopContainer:FindFirstChild("ScrollingFrame")
                             if scrollingFrame then
                                 local cash = player2.leaderstats.Cash.Value
-                                local bestSkin = nil
-                                local bestPrice = 0
-                                for i = 1, #skins do
-                                    local name = skins[i]
-                                    local item = scrollingFrame:FindFirstChild(name)
-                                    if item then
+                                local bestSkin = nil; local bestPrice = 0
+                                for _, item in ipairs(scrollingFrame:GetChildren()) do
+                                    if item:IsA("GuiObject") then
+                                        local itemName = item:FindFirstChild("ItemName")
+                                        local name = itemName and itemName:IsA("TextLabel") and itemName.Text or item.Name
                                         local main = item:FindFirstChild("Main")
                                         if main then
                                             local buyFolder = main:FindFirstChild("Buy")
@@ -522,19 +438,14 @@ do
                                                     local cashLabel = buyButton:FindFirstChild("Cash")
                                                     if cashLabel then
                                                         local price = parseCash(cashLabel.Text)
-                                                        if cash >= price and price > bestPrice then
-                                                            bestSkin = name
-                                                            bestPrice = price
-                                                        end
+                                                        if cash >= price and price > bestPrice then bestSkin = name; bestPrice = price end
                                                     end
                                                 end
                                             end
                                         end
                                     end
                                 end
-                                if bestSkin then
-                                    pcall(function() buy:InvokeServer(bestSkin) end)
-                                end
+                                if bestSkin then pcall(function() buy:InvokeServer(bestSkin) end) end
                             end
                         end
                     end
@@ -547,12 +458,73 @@ do
 end
 
 do
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Players2 = game:GetService("Players"); local player2 = Players2.LocalPlayer
+    local buyDumbbell = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("TrainingService"):WaitForChild("RF"):WaitForChild("BuyTrainTool")
+    local suffix = { K = 1e3, M = 1e6, B = 1e9, T = 1e12, Qa = 1e15, Qi = 1e18, Sx = 1e21, Sp = 1e24, Oc = 1e27, No = 1e30, Dc = 1e33 }
+    local function parseCash(text)
+        text = text:gsub("%$", ""):gsub(",", ""):gsub("%s+", "")
+        local num = tonumber(text:match("[%d%.]+"))
+        local suf = text:match("%a+")
+        if not num then return 0 end
+        if suf and suffix[suf] then return num * suffix[suf] end
+        return num
+    end
+    local running = false
+    local toggle = Tabs.Auto:AddToggle("ABD", { Title = "自动购买最佳哑铃", Default = false })
+    toggle:OnChanged(function(state)
+        running = state
+        if not state then return end
+        task.spawn(function()
+            while running do
+                local gui = player2.PlayerGui:FindFirstChild("Windows")
+                if gui then
+                    local weightShop = gui:FindFirstChild("WeightShop")
+                    if weightShop then
+                        local shopContainer = weightShop:FindFirstChild("ShopContainer")
+                        if shopContainer then
+                            local scrollingFrame = shopContainer:FindFirstChild("ScrollingFrame")
+                            if scrollingFrame then
+                                local cash = player2.leaderstats.Cash.Value
+                                local bestDumbbell = nil; local bestPrice = 0
+                                for _, item in ipairs(scrollingFrame:GetChildren()) do
+                                    if item:IsA("GuiObject") then
+                                        local itemName = item:FindFirstChild("ItemName")
+                                        local name = itemName and itemName:IsA("TextLabel") and itemName.Text or item.Name
+                                        local main = item:FindFirstChild("Main")
+                                        if main then
+                                            local buyFolder = main:FindFirstChild("Buy")
+                                            if buyFolder then
+                                                local buyButton = buyFolder:FindFirstChild("BuyButton")
+                                                if buyButton and buyButton.Visible then
+                                                    local cashLabel = buyButton:FindFirstChild("Cash")
+                                                    if cashLabel then
+                                                        local price = parseCash(cashLabel.Text)
+                                                        if cash >= price and price > bestPrice then bestDumbbell = name; bestPrice = price end
+                                                    end
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                                if bestDumbbell then pcall(function() buyDumbbell:InvokeServer(bestDumbbell) end) end
+                            end
+                        end
+                    end
+                end
+                task.wait(0.5)
+            end
+        end)
+    end)
+    Options.ABD:SetValue(false)
+end
+
+do
     Tabs.Auto:AddButton({
         Title = "拾取所有你的脑红",
         Callback = function()
             Window:Dialog({
-                Title = "确认拾取",
-                Content = "要拾取所有脑红吗？",
+                Title = "确认拾取", Content = "要拾取所有脑红吗？",
                 Buttons = {
                     {
                         Title = "确认",
@@ -566,10 +538,7 @@ do
                                 if plot and plot:FindFirstChild(tostring(i)) then
                                     local inner = plot[tostring(i)]
                                     for _, v in pairs(inner:GetDescendants()) do
-                                        if v:IsA("BillboardGui") and string.find(v.Name, username) then
-                                            myPlot = inner
-                                            break
-                                        end
+                                        if v:IsA("BillboardGui") and string.find(v.Name, username) then myPlot = inner; break end
                                     end
                                 end
                                 if myPlot then break end
@@ -606,10 +575,7 @@ do
     Tabs.Main:AddButton({
         Title = "兑换所有礼包码",
         Callback = function()
-            for _, code in ipairs(codes) do
-                pcall(function() redeem:InvokeServer(code) end)
-                task.wait(1)
-            end
+            for _, code in ipairs(codes) do pcall(function() redeem:InvokeServer(code) end); task.wait(1) end
             Fluent:Notify({ Title = "完成", Content = "已尝试兑换所有码", Duration = 3 })
         end
     })
@@ -619,53 +585,26 @@ do
     local storedParts = {}
     local folder = workspace:WaitForChild("BossTouchDetectors")
     local selectedBosses = {}
-    
-    local bossOptions = {}
-    for i = 1, 18 do
-        table.insert(bossOptions, "base" .. i)
-    end
-    
+    local bossOptions = getAllBaseNames(folder)
     local dropdown = Tabs.Main:AddDropdown("SelectBosses", {
-        Title = "选择不让抓你的Boss",
-        Description = "可多选，选中的Boss将无法抓你",
-        Values = bossOptions,
-        Multi = true,
-        Default = {},
+        Title = "选择不让抓你的Boss", Description = "可多选，选中的Boss将无法抓你",
+        Values = bossOptions, Multi = true, Default = {},
         Callback = function(value)
             selectedBosses = {}
-            for name, selected in pairs(value) do
-                if selected then
-                    table.insert(selectedBosses, name)
-                end
-            end
+            for name, selected in pairs(value) do if selected then table.insert(selectedBosses, name) end end
         end
     })
-    
-    local toggle = Tabs.Main:AddToggle("RBTD", { 
-        Title = "启用自选Boss免疫", 
-        Description = "开启后，上方选中的Boss无法抓你（其他Boss正常）", 
-        Default = false 
-    })
+    local toggle = Tabs.Main:AddToggle("RBTD", { Title = "启用自选Boss免疫", Description = "开启后，上方选中的Boss无法抓你（其他Boss正常）", Default = false })
     toggle:OnChanged(function(state)
         if state then
             storedParts = {}
             for _, obj in ipairs(folder:GetChildren()) do
                 local shouldRemove = false
-                for _, name in ipairs(selectedBosses) do
-                    if obj.Name == name then
-                        shouldRemove = true
-                        break
-                    end
-                end
-                if shouldRemove then
-                    table.insert(storedParts, obj)
-                    obj.Parent = nil
-                end
+                for _, name in ipairs(selectedBosses) do if obj.Name == name then shouldRemove = true; break end end
+                if shouldRemove then table.insert(storedParts, obj); obj.Parent = nil end
             end
         else
-            for _, obj in ipairs(storedParts) do
-                if obj then obj.Parent = folder end
-            end
+            for _, obj in ipairs(storedParts) do if obj then obj.Parent = folder end end
             storedParts = {}
         end
     end)
@@ -687,52 +626,33 @@ do
                     local humanoid = character:WaitForChild("Humanoid")
                     local userId = player4.UserId
                     local modelsFolder = workspace:WaitForChild("RunningModels")
-                    local target = workspace:WaitForChild("CollectZones"):WaitForChild("base17")
-
+                    local collectZones = workspace:WaitForChild("CollectZones")
+                    local allBases = getAllBaseNames(collectZones)
+                    local lastBaseName = allBases[#allBases]
+                    local target = collectZones:WaitForChild(lastBaseName)
                     root.CFrame = CFrame.new(715, 39, -2122)
                     task.wait(0.3)
                     humanoid:MoveTo(Vector3.new(710, 39, -2122))
-
                     local ownedModel = nil
                     repeat
                         task.wait(0.3)
                         for _, obj in ipairs(modelsFolder:GetChildren()) do
-                            if obj:IsA("Model") and obj:GetAttribute("OwnerId") == userId then
-                                ownedModel = obj
-                                break
-                            end
+                            if obj:IsA("Model") and obj:GetAttribute("OwnerId") == userId then ownedModel = obj; break end
                         end
                     until ownedModel ~= nil or not running
                     if not running then break end
-
-                    if ownedModel.PrimaryPart then
-                        ownedModel:SetPrimaryPartCFrame(target.CFrame)
-                    else
-                        local part = ownedModel:FindFirstChildWhichIsA("BasePart")
-                        if part then part.CFrame = target.CFrame end
-                    end
+                    if ownedModel.PrimaryPart then ownedModel:SetPrimaryPartCFrame(target.CFrame)
+                    else local part = ownedModel:FindFirstChildWhichIsA("BasePart"); if part then part.CFrame = target.CFrame end end
                     task.wait(0.7)
-
                     if ownedModel and ownedModel.Parent == modelsFolder then
-                        if ownedModel.PrimaryPart then
-                            ownedModel:SetPrimaryPartCFrame(target.CFrame * CFrame.new(0, -5, 0))
-                        else
-                            local part = ownedModel:FindFirstChildWhichIsA("BasePart")
-                            if part then part.CFrame = target.CFrame * CFrame.new(0, -5, 0) end
-                        end
+                        if ownedModel.PrimaryPart then ownedModel:SetPrimaryPartCFrame(target.CFrame * CFrame.new(0, -5, 0))
+                        else local part = ownedModel:FindFirstChildWhichIsA("BasePart"); if part then part.CFrame = target.CFrame * CFrame.new(0, -5, 0) end end
                     end
-
-                    repeat
-                        task.wait(0.3)
-                    until not running or (ownedModel == nil or ownedModel.Parent ~= modelsFolder)
+                    repeat task.wait(0.3) until not running or (ownedModel == nil or ownedModel.Parent ~= modelsFolder)
                     if not running then break end
-
                     local oldCharacter = player4.Character
-                    repeat
-                        task.wait(0.2)
-                    until not running or (player4.Character ~= oldCharacter and player4.Character ~= nil)
+                    repeat task.wait(0.2) until not running or (player4.Character ~= oldCharacter and player4.Character ~= nil)
                     if not running then break end
-
                     task.wait(0.4)
                     local newChar = player4.Character
                     local newRoot = newChar:WaitForChild("HumanoidRootPart")
@@ -746,147 +666,85 @@ do
 end
 
 do
-    local Players2 = game:GetService("Players")
-    local player2 = Players2.LocalPlayer
+    local Players2 = game:GetService("Players"); local player2 = Players2.LocalPlayer
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local Workspace = game:GetService("Workspace")
     local RunService2 = game:GetService("RunService")
-
     local success, CollectEggRemote = pcall(function()
         return ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("EventService"):WaitForChild("RF"):WaitForChild("CollectEgg")
     end)
-    if not success or not CollectEggRemote then
-        warn("[猫爪] 远程事件获取失败")
-        return
-    end
-
+    if not success or not CollectEggRemote then warn("[猫爪] 远程事件获取失败"); return end
     local BossFolder = Workspace:WaitForChild("BossTouchDetectors", 10)
-    if not BossFolder then
-        BossFolder = nil
-    end
-
+    if not BossFolder then BossFolder = nil end
     local TELEPORT_CFRAME = CFrame.new(715, 39, -2122)
     local WALK_TO_POSITION = Vector3.new(707, 39, -2122)
     local TELEPORT_DELAY = 2
     local COLLECT_INTERVAL = 0.01
     local COLLECT_DURATION = 7
-
     local autoEnabled = false
     local suppressConnection = nil
-
-    local function suppressBossesExcept1and17()
+    local initPhase = true
+    local function suppressBossesExceptFirstAndLast()
         if not BossFolder then return end
         pcall(function()
-            for i = 1, 18 do
-                if i == 1 or i == 17 then
-                    local boss = BossFolder:FindFirstChild("base" .. i)
-                    if boss then
-                        boss.Parent = BossFolder
-                        for _, part in ipairs(boss:GetDescendants()) do
-                            if part:IsA("BasePart") then
-                                part.CanCollide = true
-                                part.CanTouch = true
-                            end
-                        end
+            local allBossNames = getAllBaseNames(BossFolder)
+            local firstBase = allBossNames[1]
+            local lastBase = allBossNames[#allBossNames]
+            for _, child in ipairs(BossFolder:GetChildren()) do
+                local name = child.Name
+                if name == firstBase or name == lastBase then
+                    for _, part in ipairs(child:GetDescendants()) do
+                        if part:IsA("BasePart") then part.CanCollide = true; part.CanTouch = true end
                     end
                 else
-                    local boss = BossFolder:FindFirstChild("base" .. i)
-                    if boss then
-                        for _, part in ipairs(boss:GetDescendants()) do
-                            if part:IsA("BasePart") then
-                                part.CanCollide = false
-                                part.CanTouch = false
-                            end
-                        end
-                        local touchInterest = boss:FindFirstChild("TouchInterest", true)
-                        if touchInterest then touchInterest:Destroy() end
-                        boss.Parent = nil
+                    for _, part in ipairs(child:GetDescendants()) do
+                        if part:IsA("BasePart") then part.CanCollide = false; part.CanTouch = false end
                     end
+                    local touchInterest = child:FindFirstChild("TouchInterest", true)
+                    if touchInterest then touchInterest:Destroy() end
+                    child.Parent = nil
                 end
             end
         end)
     end
-
     local function startSuppressLoop()
         if not BossFolder then return end
         if suppressConnection then return end
-        suppressConnection = RunService2.Heartbeat:Connect(function()
-            if autoEnabled then suppressBossesExcept1and17() end
-        end)
+        suppressConnection = RunService2.Heartbeat:Connect(function() if autoEnabled then suppressBossesExceptFirstAndLast() end end)
     end
-
-    local function stopSuppressLoop()
-        if suppressConnection then
-            suppressConnection:Disconnect()
-            suppressConnection = nil
-        end
-    end
-
+    local function stopSuppressLoop() if suppressConnection then suppressConnection:Disconnect(); suppressConnection = nil end end
     local function onCharacterAdded(character)
         if not autoEnabled then return end
-
         local root = character:WaitForChild("HumanoidRootPart", 5)
         local humanoid = character:WaitForChild("Humanoid", 5)
         if not root or not humanoid then return end
-
         task.wait(TELEPORT_DELAY)
-
-        root.CFrame = TELEPORT_CFRAME
-        humanoid:MoveTo(WALK_TO_POSITION)
-
+        root.CFrame = TELEPORT_CFRAME; humanoid:MoveTo(WALK_TO_POSITION)
         startSuppressLoop()
-
         local startTime = tick()
         local collectThread = task.spawn(function()
-            while autoEnabled and (tick() - startTime < COLLECT_DURATION) do
-                pcall(function() CollectEggRemote:InvokeServer() end)
-                task.wait(COLLECT_INTERVAL)
-            end
+            while autoEnabled and (tick() - startTime < COLLECT_DURATION) do pcall(function() CollectEggRemote:InvokeServer() end); task.wait(COLLECT_INTERVAL) end
         end)
-
         repeat task.wait(0.1) until (tick() - startTime >= COLLECT_DURATION) or (not autoEnabled)
         task.cancel(collectThread)
-
         stopSuppressLoop()
-
-        if character and character:FindFirstChild("Humanoid") then
-            character.Humanoid.Died:Wait()
-        end
+        if character and character:FindFirstChild("Humanoid") then character.Humanoid.Died:Wait() end
     end
-
     local charAddedConn
-    local function startListening()
-        if charAddedConn then charAddedConn:Disconnect() end
-        charAddedConn = player2.CharacterAdded:Connect(onCharacterAdded)
-        if player2.Character then
-            task.spawn(onCharacterAdded, player2.Character)
-        end
-    end
-
-    local function stopListening()
-        if charAddedConn then
-            charAddedConn:Disconnect()
-            charAddedConn = nil
-        end
-        stopSuppressLoop()
-    end
-
-    local toggle = Tabs.Easter:AddToggle("AutoEggFarm", {
-        Title = "快速拾取猫爪",
-        Description = "自动传送、屏蔽Boss(保留1和17)、高速拾取",
-        Default = false
-    })
-
+    local function startListening() if charAddedConn then charAddedConn:Disconnect() end; charAddedConn = player2.CharacterAdded:Connect(onCharacterAdded); if player2.Character then task.spawn(onCharacterAdded, player2.Character) end end
+    local function stopListening() if charAddedConn then charAddedConn:Disconnect(); charAddedConn = nil end; stopSuppressLoop() end
+    local toggle = Tabs.Easter:AddToggle("AutoEggFarm", { Title = "快速拾取猫爪", Description = "自动传送、屏蔽Boss(保留首尾)、高速拾取", Default = false })
     toggle:OnChanged(function(state)
         autoEnabled = state
         if state then
             startListening()
-            Fluent:Notify({ Title = "猫爪", Content = "开始自动刷取", Duration = 2 })
+            if not initPhase then Fluent:Notify({ Title = "猫爪", Content = "开始自动刷取", Duration = 2 }) end
         else
             stopListening()
-            Fluent:Notify({ Title = "猫爪", Content = "已停止", Duration = 2 })
+            if not initPhase then Fluent:Notify({ Title = "猫爪", Content = "已停止", Duration = 2 }) end
         end
     end)
+    task.delay(1, function() initPhase = false end)
     Options.AutoEggFarm:SetValue(false)
 end
 
@@ -894,82 +752,91 @@ do
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local collectBlackCoin = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):WaitForChild("sleitnick_knit@1.7.0"):WaitForChild("knit"):WaitForChild("Services"):WaitForChild("EventService"):WaitForChild("RF"):WaitForChild("CollectInfinityCoin")
     local running = false
-
-    local toggle = Tabs.Easter:AddToggle("AutoBlackCoin", {
-        Title = "自动拾取黑币",
-        Description = "仅快速拾取，不传送不屏蔽Boss",
-        Default = false
-    })
-
+    local toggle = Tabs.Easter:AddToggle("AutoBlackCoin", { Title = "自动拾取黑币", Description = "仅快速拾取，不传送不屏蔽Boss", Default = false })
     toggle:OnChanged(function(state)
         running = state
         if not state then return end
-        task.spawn(function()
-            while running do
-                pcall(function()
-                    collectBlackCoin:InvokeServer()
-                end)
-                task.wait(0.01)
-            end
-        end)
+        task.spawn(function() while running do pcall(function() collectBlackCoin:InvokeServer() end); task.wait(0.01) end end)
     end)
     Options.AutoBlackCoin:SetValue(false)
 end
 
 do
-    local Players2 = game:GetService("Players")
-    local player2 = Players2.LocalPlayer
-    local running = false
-    local sliderValue = 1000
-    local originalSpeed = nil
-    local currentModel = nil
-
+    local Players2 = game:GetService("Players"); local player2 = Players2.LocalPlayer
+    local running = false; local sliderValue = 1000; local originalSpeed = nil; local currentModel = nil
     local function getMyModel()
         local folder = workspace:FindFirstChild("RunningModels")
         if not folder then return nil end
         for _, model in ipairs(folder:GetChildren()) do
-            if model:GetAttribute("OwnerId") == player2.UserId then
-                return model
-            end
+            if model:GetAttribute("OwnerId") == player2.UserId then return model end
         end
         return nil
     end
-
     local function applySpeed()
         local model = getMyModel()
-        if not model then currentModel = nil return end
-        if model ~= currentModel then
-            currentModel = model
-            originalSpeed = model:GetAttribute("MovementSpeed")
-        end
+        if not model then currentModel = nil; return end
+        if model ~= currentModel then currentModel = model; originalSpeed = model:GetAttribute("MovementSpeed") end
         if running then
             if originalSpeed == nil then originalSpeed = model:GetAttribute("MovementSpeed") end
             model:SetAttribute("MovementSpeed", sliderValue)
         end
     end
-
-    task.spawn(function()
-        while true do
-            if running then applySpeed() end
-            task.wait(0.2)
-        end
-    end)
-
+    task.spawn(function() while true do if running then applySpeed() end; task.wait(0.2) end end)
     local toggle = Tabs.Speed:AddToggle("MovementToggle", { Title = "启用自定义幸运方块速度", Default = false })
     toggle:OnChanged(function()
         running = Options.MovementToggle.Value
         if not running then
             local model = getMyModel()
-            if model and originalSpeed ~= nil then
-                model:SetAttribute("MovementSpeed", originalSpeed)
-            end
-            originalSpeed = nil
-            currentModel = nil
+            if model and originalSpeed ~= nil then model:SetAttribute("MovementSpeed", originalSpeed) end
+            originalSpeed = nil; currentModel = nil
         end
     end)
-
     local slider = Tabs.Speed:AddSlider("MovementSlider", { Title = "幸运方块移动速度", Default = 1000, Min = 50, Max = 3000, Rounding = 0 })
     slider:OnChanged(function(v) sliderValue = v end)
+end
+
+do
+    local folder = workspace:WaitForChild("BossTouchDetectors")
+    local storedDetectors = {}
+    local immuneEnabled = true
+    local autoSacrifice = false
+    local function enableImmune()
+        immuneEnabled = true
+        for _, obj in ipairs(folder:GetChildren()) do
+            if not storedDetectors[obj.Name] then storedDetectors[obj.Name] = obj end
+            pcall(function() obj.Parent = nil end)
+        end
+    end
+    local function disableImmune()
+        immuneEnabled = false
+        for name, obj in pairs(storedDetectors) do if obj then pcall(function() obj.Parent = folder end) end end
+    end
+    enableImmune()
+    folder.ChildAdded:Connect(function(child)
+        if immuneEnabled then storedDetectors[child.Name] = child; pcall(function() child.Parent = nil end) end
+    end)
+    local function isBeingChased()
+        for _, boss in ipairs(workspace:GetDescendants()) do
+            if boss:IsA("Model") and boss:GetAttribute("BossId") then
+                local highlight = boss:FindFirstChild("Highlight")
+                if highlight and highlight.Enabled then return true end
+            end
+        end
+        return false
+    end
+    local wasChased = false
+    RunService.Heartbeat:Connect(function()
+        if not autoSacrifice then return end
+        local isChased = isBeingChased()
+        if isChased and not wasChased then
+            disableImmune()
+            task.delay(3, function() enableImmune() end)
+        end
+        wasChased = isChased
+    end)
+    player.CharacterAdded:Connect(function(char) task.wait(0.5); if immuneEnabled then enableImmune() end end)
+    local toggle = Tabs.Main:AddToggle("AutoSacrifice", { Title = "自动献祭", Description = "开启后，被Boss追击时自动关闭免疫3秒，让Boss秒杀你", Default = false })
+    toggle:OnChanged(function(state) autoSacrifice = state end)
 end
 
 SaveManager:SetLibrary(Fluent)
