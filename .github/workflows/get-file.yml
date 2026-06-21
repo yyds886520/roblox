@@ -1,0 +1,44 @@
+name: Get Specific File
+
+on:
+  workflow_dispatch:
+    inputs:
+      filename:
+        description: '文件名（带 .lua 后缀）'
+        required: true
+        type: string
+
+jobs:
+  get-file:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v3
+
+      - name: 查找并打包指定文件
+        run: |
+          FILE="${{ github.event.inputs.filename }}"
+          FOUND=$(find . -name "$FILE" | head -n 1)
+
+          if [ -z "$FOUND" ]; then
+            echo "file_exists=false" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          echo "file_exists=true" >> $GITHUB_ENV
+          zip -r "$FILE.zip" "$FOUND"
+
+      - name: 发送到 Telegram
+        run: |
+          if [[ "${{ env.file_exists }}" == "true" ]]; then
+            curl --retry 3 --retry-delay 2 \
+                 -F "chat_id=6747089644" \
+                 -F "document=@${{ github.event.inputs.filename }}.zip" \
+                 -F "caption=📄 ${{ github.event.inputs.filename }}" \
+                 https://api.telegram.org/bot8916534551:AAGfNBudGgwE_dRLziJILlKvp6jpBnZJAmU/sendDocument
+          else
+            curl -F "chat_id=6747089644" \
+                 -F "text=❌ 文件不存在: ${{ github.event.inputs.filename }}" \
+                 https://api.telegram.org/bot8916534551:AAGfNBudGgwE_dRLziJILlKvp6jpBnZJAmU/sendMessage
+          fi
