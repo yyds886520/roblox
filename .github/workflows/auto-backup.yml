@@ -1,0 +1,45 @@
+name: Auto Backup
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "**.lua"
+      - ".github/workflows/*.yml"
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      - name: 检测变更文件并打包
+        id: pack
+        run: |
+          CHANGED=$(git diff --name-only HEAD^ HEAD | grep '\.lua$' || true)
+          if [ -z "$CHANGED" ]; then
+            echo "skip=true" >> $GITHUB_ENV
+            exit 0
+          fi
+          for file in $CHANGED; do
+            filename=$(basename "$file" .lua)
+            zip -r "${filename}.zip" "$file"
+            echo "files=$CHANGED" >> $GITHUB_ENV
+          done
+
+      - name: 发送到 Telegram
+        if: env.skip != 'true'
+        run: |
+          for file in ${{ env.files }}; do
+            filename=$(basename "$file" .lua)
+            curl --retry 3 --retry-delay 2 \
+                 -F "chat_id=6747089644" \
+                 -F "document=@${filename}.zip" \
+                 -F "caption=📄 $file%0A🕐 $(date +'%Y-%m-%d %H:%M:%S')" \
+                 https://api.telegram.org/bot8916534551:AAGfNBudGgwE_dRLziJILlKvp6jpBnZJAmU/sendDocument
+          done
