@@ -13,10 +13,10 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: Checkout 代码
+      - name: 拉取代码
         uses: actions/checkout@v3
 
-      - name: 打包所有 Lua 文件
+      - name: 打包 Lua 文件
         run: |
           VERSION=$(date +"%Y-%m-%d_%H-%M-%S")
           zip -r "源码备份-${VERSION}.zip" . -i "*.lua"
@@ -25,7 +25,7 @@ jobs:
       - name: 发送到 Telegram
         run: |
           curl --retry 3 --retry-delay 2 \
-               -F "chat_id=你的ChatID" \
+               -F "chat_id=6747089644" \
                -F "document=@源码备份-${{ env.VERSION }}.zip" \
-               -F "caption=源码备份%0A时间: ${{ env.VERSION }}%0A提交: ${{ github.event.head_commit.message }}" \
+               -F "caption=源码备份%0A时间: ${{ env.VERSION }}%0A提交信息: ${{ github.event.head_commit.message }}" \
                https://api.telegram.org/bot8916534551:AAGfNBudGgwE_dRLziJILlKvp6jpBnZJAmU/sendDocument
