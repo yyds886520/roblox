@@ -1,0 +1,26 @@
+name: Get All Files
+
+on:
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v3
+
+      - name: 打包所有 Lua 文件
+        run: |
+          VERSION=$(date +"%Y-%m-%d_%H-%M-%S")
+          zip -r "all-scripts-${VERSION}.zip" . -i "*.lua"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: 发送到 Telegram
+        run: |
+          curl --retry 3 --retry-delay 2 \
+               -F "chat_id=6747089644" \
+               -F "document=@all-scripts-${{ env.VERSION }}.zip" \
+               -F "caption=📦 全部源码%0A🕐 ${{ env.VERSION }}" \
+               https://api.telegram.org/bot8916534551:AAGfNBudGgwE_dRLziJILlKvp6jpBnZJAmU/sendDocument
