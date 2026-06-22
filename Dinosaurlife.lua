@@ -704,6 +704,51 @@ Tabs.Home:AddToggle("SwimBoost", {
     end
 })
 
+local noFallEnabled = false
+local fallOrigCache = {}
+
+local function applyNoFallDamage()
+    local configModule = game:GetService("ReplicatedStorage").Shared.AnimalConfig
+    if not configModule or not configModule:IsA("ModuleScript") then return end
+    local config = require(configModule)
+    if not config then return end
+
+    for _, cat in ipairs({"LandDinos", "AquaticDinos", "FlyingDinos"}) do
+        local category = config[cat]
+        if category then
+            for name, dino in pairs(category) do
+                if dino.FallDamageHeights then
+                    if not fallOrigCache[name] then
+                        fallOrigCache[name] = {
+                            min = dino.FallDamageHeights.Min,
+                            max = dino.FallDamageHeights.Max
+                        }
+                    end
+                    if noFallEnabled then
+                        dino.FallDamageHeights.Min = 1e9
+                        dino.FallDamageHeights.Max = 1e9
+                    else
+                        local orig = fallOrigCache[name]
+                        if orig then
+                            dino.FallDamageHeights.Min = orig.min
+                            dino.FallDamageHeights.Max = orig.max
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+Tabs.Home:AddToggle("NoFallDamage", {
+    Title = "无摔落伤害",
+    Default = false,
+    Callback = function(v)
+        noFallEnabled = v
+        applyNoFallDamage()
+    end
+})
+
 pcall(function()
     local SaveManagerBuilder = safeLoadBuilder("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua")
     local InterfaceManagerBuilder = safeLoadBuilder("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua")
