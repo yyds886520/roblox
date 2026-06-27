@@ -448,7 +448,7 @@ local function refreshItemESP()
         end
     end
 
-    if not ESPConfig.ItemESP then
+    if not ESPConfig.ItemESP or not ESPConfig.Enabled then
         for part, data in pairs(itemESPs) do
             data.billboard:Destroy()
             itemESPs[part] = nil
@@ -503,15 +503,18 @@ function refreshAllESP()
         for plr, _ in pairs(playerESPs) do
             removePlayerESP(plr)
         end
+        for part, data in pairs(itemESPs) do
+            data.billboard:Destroy()
+            itemESPs[part] = nil
+        end
     else
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= player then
                 updatePlayerESP(plr)
             end
         end
+        refreshItemESP()
     end
-
-    refreshItemESP()
 end
 
 Players.PlayerAdded:Connect(function(plr)
@@ -550,6 +553,11 @@ Tabs.ESP:AddToggle("ESPEnabled", {
         ESPConfig.Enabled = v
         if not v then
             for plr, _ in pairs(playerESPs) do removePlayerESP(plr) end
+            for part, data in pairs(itemESPs) do
+                data.billboard:Destroy()
+                itemESPs[part] = nil
+            end
+            ESPConfig.ItemESP = false
         end
     end
 })
@@ -746,6 +754,105 @@ Tabs.Home:AddToggle("NoFallDamage", {
     Callback = function(v)
         noFallEnabled = v
         applyNoFallDamage()
+    end
+})
+
+local grabNoCooldown = false
+local grabOrigCache = {}
+
+local function applyGrabCooldown()
+    local configModule = game:GetService("ReplicatedStorage").Shared.AnimalConfig
+    if not configModule or not configModule:IsA("ModuleScript") then return end
+    local config = require(configModule)
+    if not config then return end
+
+    for _, cat in ipairs({"LandDinos", "AquaticDinos", "FlyingDinos"}) do
+        local category = config[cat]
+        if category then
+            for name, dino in pairs(category) do
+                if dino.SpecialAttackConfig and dino.SpecialAttackConfig.Type == "Pounce" then
+                    local sac = dino.SpecialAttackConfig
+                    if not grabOrigCache[name] then
+                        grabOrigCache[name] = {
+                            NoHitDebounce = sac.NoHitDebounce,
+                            HitDebounce = sac.HitDebounce
+                        }
+                    end
+                    if grabNoCooldown then
+                        sac.NoHitDebounce = 0
+                        sac.HitDebounce = 0
+                    else
+                        local orig = grabOrigCache[name]
+                        if orig then
+                            sac.NoHitDebounce = orig.NoHitDebounce
+                            sac.HitDebounce = orig.HitDebounce
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+Tabs.Home:AddToggle("GrabNoCooldown", {
+    Title = "抓取无冷却",
+    Default = false,
+    Callback = function(v)
+        grabNoCooldown = v
+        applyGrabCooldown()
+    end
+})
+
+local escapeEnabled = false
+local escapeConnection = nil
+local latchEvent = game:GetService("ReplicatedStorage"):WaitForChild("LatchedPlayersNotifyRemoteEvent")
+
+local function tryEscape()
+    pcall(function()
+        latchEvent:FireServer()
+    end)
+end
+
+local function isLatched()
+    return playerGui:FindFirstChild("ExitLatchScreenGui") ~= nil
+end
+
+local function enableEscape()
+    escapeEnabled = true
+    if escapeConnection then escapeConnection:Disconnect() end
+    escapeConnection = playerGui.DescendantAdded:Connect(function(desc)
+        if desc.Name == "ExitLatchScreenGui" and desc:IsA("ScreenGui") then
+            task.spawn(function()
+                while isLatched() and escapeEnabled do
+                    tryEscape()
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end)
+    if isLatched() then
+        task.spawn(function()
+            while isLatched() and escapeEnabled do
+                tryEscape()
+                task.wait(0.1)
+            end
+        end)
+    end
+end
+
+local function disableEscape()
+    escapeEnabled = false
+    if escapeConnection then
+        escapeConnection:Disconnect()
+        escapeConnection = nil
+    end
+end
+
+Tabs.Home:AddToggle("AutoEscape", {
+    Title = "自动逃脱",
+    Default = false,
+    Callback = function(v)
+        if v then enableEscape() else disableEscape() end
     end
 })
 
