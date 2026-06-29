@@ -15,7 +15,7 @@ screenGui.Name = "FlashUI"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
-local expandedHeight = 218
+local expandedHeight = 270
 local collapsedHeight = 38
 local frameWidth = 240
 
@@ -386,6 +386,37 @@ local function stopCollectCash()
     end
 end
 
+local antiAFKEnabled = false
+local antiAFKThread = nil
+
+local function antiAFKMove()
+    local P = player
+    local C = P.Character or P.CharacterAdded:Wait()
+    local H = C:FindFirstChildOfClass("Humanoid")
+    local R = C:FindFirstChild("HumanoidRootPart")
+    if H and R and H.Health > 0 then
+        H:MoveTo(R.Position + Vector3.new(math.random(-10,10), 0, math.random(-10,10)))
+    end
+end
+
+local function startAntiAFK()
+    if antiAFKThread then return end
+    antiAFKThread = coroutine.create(function()
+        while antiAFKEnabled do
+            antiAFKMove()
+            wait(10)
+        end
+    end)
+    coroutine.resume(antiAFKThread)
+end
+
+local function stopAntiAFK()
+    antiAFKEnabled = false
+    if antiAFKThread then
+        antiAFKThread = nil
+    end
+end
+
 addToggleRow(0, "跑步机自动x2", function(state)
     autoRunEnabled = state
     if state then startAutoRun() else stopAutoRun() end
@@ -401,9 +432,36 @@ addToggleRow(64, "收集现金", function(state)
     if state then startCollectCash() else stopCollectCash() end
 end)
 
+addToggleRow(96, "防挂机", function(state)
+    antiAFKEnabled = state
+    if state then
+        startAntiAFK()
+    else
+        stopAntiAFK()
+    end
+end)
+
+local tipRow = Instance.new("Frame")
+tipRow.Size = UDim2.new(1, -2 * paddingLeft, 0, 20)
+tipRow.Position = UDim2.new(0, paddingLeft, 0, 128)
+tipRow.BackgroundTransparency = 1
+tipRow.BorderSizePixel = 0
+tipRow.Parent = contentFrame
+
+local tipLabel = Instance.new("TextLabel")
+tipLabel.Size = UDim2.new(1, 0, 1, 0)
+tipLabel.BackgroundTransparency = 1
+tipLabel.Text = "💡 搭配自动连点器使用，防挂机效果更佳"
+tipLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+tipLabel.Font = Enum.Font.Gotham
+tipLabel.TextSize = 12
+tipLabel.TextXAlignment = Enum.TextXAlignment.Left
+tipLabel.TextYAlignment = Enum.TextYAlignment.Center
+tipLabel.Parent = tipRow
+
 local authorRow = Instance.new("Frame")
 authorRow.Size = UDim2.new(1, -2 * paddingLeft, 0, 32)
-authorRow.Position = UDim2.new(0, paddingLeft, 0, 96)
+authorRow.Position = UDim2.new(0, paddingLeft, 0, 152)
 authorRow.BackgroundTransparency = 1
 authorRow.BorderSizePixel = 0
 authorRow.Parent = contentFrame
