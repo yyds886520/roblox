@@ -18,48 +18,31 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: 检测变更和删除
-        id: changes
+      - name: 检测变更文件并打包
+        id: pack
         run: |
-          # 获取变更的文件（新增、修改）
           CHANGED=$(git diff --name-only HEAD^ HEAD | grep '\.lua$' || true)
-          # 获取删除的文件
-          DELETED=$(git diff --diff-filter=D --name-only HEAD^ HEAD | grep '\.lua$' || true)
-
-          echo "changed=$CHANGED" >> $GITHUB_ENV
-          echo "deleted=$DELETED" >> $GITHUB_ENV
-
-          if [ -n "$DELETED" ]; then
-            # 将删除的文件列表保存到环境变量，用于消息内容
-            DELETED_NAMES=$(echo "$DELETED" | tr '\n' ', ' | sed 's/, $//')
-            echo "deleted_names=$DELETED_NAMES" >> $GITHUB_ENV
+          if [ -z "$CHANGED" ]; then
+            echo "skip=true" >> $GITHUB_ENV
+            exit 0
           fi
-
-      - name: 发送删除通知
-        if: env.deleted != ''
-        run: |
-          curl --retry 3 --retry-delay 2 \
-               -F "chat_id=6747089644" \
-               -F "text=🗑️ 文件被删除: ${{ env.deleted_names }}%0A📝 提交信息: ${{ github.event.head_commit.message }}" \
-               https://api.telegram.org/bot8916534551:AAGfNBudGgwE_dRLziJILlKvp6jpBnZJAmU/sendMessage
-
-      - name: 打包变更文件
-        if: env.changed != ''
-        run: |
-          for file in ${{ env.changed }}; do
+          for file in $CHANGED; do
             filename=$(basename "$file" .lua)
             zip -r "${filename}.zip" "$file"
-            echo "files=$file" >> $GITHUB_ENV
+            echo "files=$CHANGED" >> $GITHUB_ENV
           done
 
-      - name: 发送变更文件
-        if: env.changed != ''
+      - name: 发送到 Telegram
+        if: env.skip != 'true'
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          for file in ${{ env.changed }}; do
+          for file in ${{ env.files }}; do
             filename=$(basename "$file" .lua)
             curl --retry 3 --retry-delay 2 \
-                 -F "chat_id=6747089644" \
+                 -F "chat_id=$TELEGRAM_CHAT_ID" \
                  -F "document=@${filename}.zip" \
                  -F "caption=📄 $file%0A🕐 $(date +'%Y-%m-%d %H:%M:%S')" \
-                 https://api.telegram.org/bot8916534551:AAGfNBudGgwE_dRLziJILlKvp6jpBnZJAmU/sendDocument
+                 https://api.telegram.org/bot$TELEGRAM_TOKEN/sendDocument
           done
