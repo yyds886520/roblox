@@ -1,48 +1,59 @@
 name: Auto Backup
-
 on:
   push:
     branches: [ "main" ]
     paths:
       - "**.lua"
       - ".github/workflows/*.yml"
-
 jobs:
   backup:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-
     steps:
-      - name: 拉取代码
+      - name: Checkout
         uses: actions/checkout@v3
         with:
           fetch-depth: 2
-
-      - name: 检测变更文件并打包
-        id: pack
+      - name: Detect changes
+        id: changes
         run: |
-          CHANGED=$(git diff --name-only HEAD^ HEAD | grep '\.lua$' || true)
-          if [ -z "$CHANGED" ]; then
-            echo "skip=true" >> $GITHUB_ENV
-            exit 0
-          fi
-          for file in $CHANGED; do
-            filename=$(basename "$file" .lua)
-            zip -r "${filename}.zip" "$file"
-            echo "files=$CHANGED" >> $GITHUB_ENV
-          done
-
-      - name: 发送到 Telegram
-        if: env.skip != 'true'
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          echo "commit_msg=$COMMIT_MSG" >> $GITHUB_ENV
+          CHANGED=$(git diff --diff-filter=AM --name-only HEAD^ HEAD | grep '\.lua$' || true)
+          DELETED=$(git diff --diff-filter=D --name-only HEAD^ HEAD | grep '\.lua$' || true)
+          echo "changed=$CHANGED" >> $GITHUB_ENV
+          echo "deleted=$DELETED" >> $GITHUB_ENV
+      - name: Notify deleted
+        if: env.deleted != ''
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          for file in ${{ env.files }}; do
+          for file in ${{ env.deleted }}; do
+            curl --retry 3 --retry-delay 2 \
+                 -F "chat_id=$TELEGRAM_CHAT_ID" \
+                 -F "text=🗑️ 文件已删除: $file%0A📝 提交信息: ${{ env.commit_msg }}" \
+                 https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage
+          done
+      - name: Pack changed files
+        if: env.changed != ''
+        run: |
+          for file in ${{ env.changed }}; do
+            filename=$(basename "$file" .lua)
+            zip -r "${filename}.zip" "$file"
+            echo "files=$file" >> $GITHUB_ENV
+          done
+      - name: Send changed files
+        if: env.changed != ''
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          for file in ${{ env.changed }}; do
             filename=$(basename "$file" .lua)
             curl --retry 3 --retry-delay 2 \
                  -F "chat_id=$TELEGRAM_CHAT_ID" \
                  -F "document=@${filename}.zip" \
-                 -F "caption=📄 $file%0A🕐 $(date +'%Y-%m-%d %H:%M:%S')" \
+                 -F "caption=📄 文件: $file%0A🕐 $(date +'%Y-%m-%d %H:%M:%S')%0A📝 提交信息: ${{ env.commit_msg }}" \
                  https://api.telegram.org/bot$TELEGRAM_TOKEN/sendDocument
           done
