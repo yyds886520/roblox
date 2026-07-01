@@ -30,15 +30,18 @@ jobs:
           zip -r "$FILE.zip" "$FOUND"
 
       - name: 发送到 Telegram
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           if [[ "${{ env.file_exists }}" == "true" ]]; then
             curl --retry 3 --retry-delay 2 \
-                 -F "chat_id=6747089644" \
+                 -F "chat_id=$TELEGRAM_CHAT_ID" \
                  -F "document=@${{ github.event.inputs.filename }}.zip" \
                  -F "caption=📄 ${{ github.event.inputs.filename }}" \
-                 https://api.telegram.org/bot8916534551:AAGfNBudGgwE_dRLziJILlKvp6jpBnZJAmU/sendDocument
+                 https://api.telegram.org/bot$TELEGRAM_TOKEN/sendDocument
           else
-            curl -F "chat_id=6747089644" \
+            curl -F "chat_id=$TELEGRAM_CHAT_ID" \
                  -F "text=❌ 文件不存在: ${{ github.event.inputs.filename }}" \
-                 https://api.telegram.org/bot8916534551:AAGfNBudGgwE_dRLziJILlKvp6jpBnZJAmU/sendMessage
+                 https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage
           fi
