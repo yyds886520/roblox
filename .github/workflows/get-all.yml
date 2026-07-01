@@ -18,9 +18,12 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: 发送到 Telegram
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           curl --retry 3 --retry-delay 2 \
-               -F "chat_id=6747089644" \
+               -F "chat_id=$TELEGRAM_CHAT_ID" \
                -F "document=@all-scripts-${{ env.VERSION }}.zip" \
                -F "caption=📦 全部源码%0A🕐 ${{ env.VERSION }}" \
-               https://api.telegram.org/bot8916534551:AAGfNBudGgwE_dRLziJILlKvp6jpBnZJAmU/sendDocument
+               https://api.telegram.org/bot$TELEGRAM_TOKEN/sendDocument
