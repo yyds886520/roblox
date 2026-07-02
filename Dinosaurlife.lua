@@ -1,3 +1,386 @@
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+
+local icons = {"skull", "star", "heart", "crown", "shield", "wrench", "rocket", "fire", "bolt", "moon", "sun", "globe", "terminal", "gamepad", "dollar-sign", "gift", "plane", "ship", "car", "bicycle", "tree", "flower", "snowflake", "rainbow", "flask", "atom", "satellite", "wifi", "folder", "calendar", "clock", "alarm", "mail", "phone", "laptop", "play", "pause", "infinity", "thumbs-up", "pray", "yinyang", "earth-americas", "volcano", "campfire", "medkit", "ambulance", "wheelchair", "universal-access", "bug", "lightbulb", "coffee"}
+
+local Window = WindUI:CreateWindow({
+    Title = "恐龙生活",
+    Icon = icons[math.random(#icons)],
+    Author = "by.小梦",
+    Folder = "DinoLife",
+    Size = UDim2.fromOffset(480, 400),
+    Theme = "Dark",
+    SideBarWidth = 160,
+    Transparent = true,
+    BackgroundImageTransparency = 0.3,
+    User = { Enabled = false },
+})
+
+Window:EditOpenButton({
+    Title = "打开/关闭",
+    Icon = icons[math.random(#icons)],
+    CornerRadius = UDim.new(0, 8),
+    StrokeThickness = 2.5,
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+        ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 255, 0)),
+        ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 255, 0)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 255)),
+        ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0, 0, 255)),
+        ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 0, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0)),
+    }),
+    Draggable = true,
+})
+
+local globalResetCallbacks = {}
+
+local CombatTab = Window:Tab({ Title = "战斗", Icon = "swords" })
+local MoveTab = Window:Tab({ Title = "移动", Icon = "run" })
+local ESPTab = Window:Tab({ Title = "ESP", Icon = "eye" })
+
+local AttackHandlerEvent = ReplicatedStorage:WaitForChild("AttackHandlerRemoteEvent")
+local SpecialRegularEvent = ReplicatedStorage:WaitForChild("SpecialAttackRemoteEvent_RegularAttack")
+local auraEnabled = false
+local auraThread = nil
+local ATTACK_COOLDOWN = 0.5
+
+local function getAttackEventForCurrentDino()
+    local char = player.Character
+    if not char then return nil end
+    local animalName = char:GetAttribute("AnimalName")
+    if not animalName then return nil end
+    local success, configModule = pcall(function()
+        return require(ReplicatedStorage.Shared.AnimalConfig)
+    end)
+    if not success or not configModule then return nil end
+    for _, cat in ipairs({"LandDinos", "AquaticDinos", "FlyingDinos"}) do
+        local category = configModule[cat]
+        if category and category[animalName] then
+            local dino = category[animalName]
+            if dino.SpecialAttackConfig then
+                local attackType = dino.SpecialAttackConfig.Type
+                if attackType == "Regular" then
+                    return SpecialRegularEvent
+                else
+                    return AttackHandlerEvent
+                end
+            else
+                return AttackHandlerEvent
+            end
+        end
+    end
+    return nil
+end
+
+local function doAttack(target)
+    local event = getAttackEventForCurrentDino()
+    if event then
+        pcall(function() event:FireServer(target) end)
+    else
+        pcall(function() AttackHandlerEvent:FireServer(target) end)
+        pcall(function() SpecialRegularEvent:FireServer(target) end)
+    end
+end
+
+local function getNearestEnemy(range)
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    local nearest, nearestDist = nil, range
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr == player then continue end
+        local c = plr.Character
+        if c and c:FindFirstChild("HumanoidRootPart") and c:FindFirstChild("Humanoid") and c.Humanoid.Health > 0 then
+            local d = (c.HumanoidRootPart.Position - root.Position).Magnitude
+            if d < nearestDist then
+                nearestDist = d
+                nearest = c.Humanoid
+            end
+        end
+    end
+    return nearest
+end
+
+CombatTab:Toggle({
+    Title = "杀戮光环",
+    Default = false,
+    Callback = function(v)
+        auraEnabled = v
+        if v then
+            auraThread = task.spawn(function()
+                while auraEnabled do
+                    local target = getNearestEnemy(39)
+                    if target then
+                        doAttack(target)
+                    end
+                    task.wait(ATTACK_COOLDOWN)
+                end
+            end)
+        else
+            auraEnabled = false
+            auraThread = nil
+        end
+    end,
+})
+table.insert(globalResetCallbacks, function() auraEnabled = false auraThread = nil end)
+
+local latchEvent = ReplicatedStorage:WaitForChild("LatchedPlayersNotifyRemoteEvent")
+local escapeEnabled = false
+local escapeConnection = nil
+
+local function isLatched()
+    return playerGui:FindFirstChild("ExitLatchScreenGui") ~= nil
+end
+
+local function tryEscape()
+    pcall(function() latchEvent:FireServer() end)
+end
+
+local function enableEscape()
+    escapeEnabled = true
+    if escapeConnection then escapeConnection:Disconnect() end
+    escapeConnection = playerGui.DescendantAdded:Connect(function(desc)
+        if desc.Name == "ExitLatchScreenGui" and desc:IsA("ScreenGui") then
+            task.spawn(function()
+                while isLatched() and escapeEnabled do
+                    tryEscape()
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end)
+    if isLatched() then
+        task.spawn(function()
+            while isLatched() and escapeEnabled do
+                tryEscape()
+                task.wait(0.1)
+            end
+        end)
+    end
+end
+
+local function disableEscape()
+    escapeEnabled = false
+    if escapeConnection then
+        escapeConnection:Disconnect()
+        escapeConnection = nil
+    end
+end
+
+CombatTab:Toggle({
+    Title = "自动逃脱",
+    Default = false,
+    Callback = function(v)
+        if v then enableEscape() else disableEscape() end
+    end,
+})
+table.insert(globalResetCallbacks, disableEscape)
+
+local infiniteStaminaEnabled = false
+local staminaThread = nil
+MoveTab:Toggle({
+    Title = "无限体力",
+    Default = false,
+    Callback = function(v)
+        infiniteStaminaEnabled = v
+        if v then
+            staminaThread = task.spawn(function()
+                while infiniteStaminaEnabled do
+                    local char = player.Character
+                    if char then pcall(function() char:SetAttribute("Stamina", 100) end) end
+                    task.wait(0.1)
+                end
+            end)
+        else
+            infiniteStaminaEnabled = false
+            staminaThread = nil
+        end
+    end,
+})
+table.insert(globalResetCallbacks, function() infiniteStaminaEnabled = false staminaThread = nil end)
+
+local sprintBoostEnabled = false
+local sprintOrigCache = {}
+local BOOST_MULTIPLIER = 1.5
+
+local function applySprintBoostToConfig()
+    local char = player.Character
+    if not char then return end
+    local animalName = char:GetAttribute("AnimalName")
+    if not animalName then return end
+    local configModule = ReplicatedStorage.Shared.AnimalConfig
+    if not configModule or not configModule:IsA("ModuleScript") then return end
+    local config = require(configModule)
+    if not config then return end
+    local dinoConfig
+    for _, cat in ipairs({"LandDinos", "AquaticDinos", "FlyingDinos"}) do
+        if config[cat] and config[cat][animalName] then
+            dinoConfig = config[cat][animalName]
+            break
+        end
+    end
+    if not dinoConfig or not dinoConfig.MaleStats or not dinoConfig.MaleStats.MovementSpeeds then return end
+    local speeds = dinoConfig.MaleStats.MovementSpeeds
+    local divider = dinoConfig.BabySpeedReductionDivider
+    if sprintBoostEnabled then
+        if not sprintOrigCache[animalName] then
+            sprintOrigCache[animalName] = {
+                sprint = speeds.Sprinting,
+                divider = divider
+            }
+        end
+        speeds.Sprinting = sprintOrigCache[animalName].sprint * BOOST_MULTIPLIER
+        if divider then
+            dinoConfig.BabySpeedReductionDivider = sprintOrigCache[animalName].divider / BOOST_MULTIPLIER
+        end
+    else
+        if sprintOrigCache[animalName] then
+            speeds.Sprinting = sprintOrigCache[animalName].sprint
+            if divider then
+                dinoConfig.BabySpeedReductionDivider = sprintOrigCache[animalName].divider
+            end
+            sprintOrigCache[animalName] = nil
+        end
+    end
+end
+
+MoveTab:Toggle({
+    Title = "冲刺加速",
+    Default = false,
+    Callback = function(v)
+        sprintBoostEnabled = v
+        applySprintBoostToConfig()
+    end,
+})
+table.insert(globalResetCallbacks, function() sprintBoostEnabled = false applySprintBoostToConfig() end)
+
+local swimBoostEnabled = false
+local SWIM_SPEED = 70
+
+local function applySwimBoostToConfig()
+    local char = player.Character
+    if not char then return end
+    local animalName = char:GetAttribute("AnimalName")
+    if not animalName then return end
+    local configModule = ReplicatedStorage.Shared.AnimalConfig
+    if not configModule or not configModule:IsA("ModuleScript") then return end
+    local config = require(configModule)
+    if not config then return end
+    local categories = {"LandDinos", "AquaticDinos", "FlyingDinos"}
+    for _, cat in ipairs(categories) do
+        local category = config[cat]
+        if category and category[animalName] then
+            local dinoConfig = category[animalName]
+            if dinoConfig.MaleStats and dinoConfig.MaleStats.MovementSpeeds then
+                dinoConfig.MaleStats.MovementSpeeds.Swimming = SWIM_SPEED
+            end
+            if dinoConfig.FreeDiveSwimmingConfig then
+                dinoConfig.FreeDiveSwimmingConfig.SlowSwimSpeed = SWIM_SPEED
+                dinoConfig.FreeDiveSwimmingConfig.FastSwimSpeed = SWIM_SPEED
+            end
+            break
+        end
+    end
+end
+
+MoveTab:Toggle({
+    Title = "游泳加速",
+    Default = false,
+    Callback = function(v)
+        swimBoostEnabled = v
+        if v then applySwimBoostToConfig() end
+    end,
+})
+table.insert(globalResetCallbacks, function() swimBoostEnabled = false end)
+
+local noFallEnabled = false
+local fallOrigCache = {}
+
+local function applyNoFallDamage()
+    local configModule = ReplicatedStorage.Shared.AnimalConfig
+    if not configModule or not configModule:IsA("ModuleScript") then return end
+    local config = require(configModule)
+    if not config then return end
+    for _, cat in ipairs({"LandDinos", "AquaticDinos", "FlyingDinos"}) do
+        local category = config[cat]
+        if category then
+            for name, dino in pairs(category) do
+                if dino.FallDamageHeights then
+                    if not fallOrigCache[name] then
+                        fallOrigCache[name] = {
+                            min = dino.FallDamageHeights.Min,
+                            max = dino.FallDamageHeights.Max
+                        }
+                    end
+                    if noFallEnabled then
+                        dino.FallDamageHeights.Min = 1e9
+                        dino.FallDamageHeights.Max = 1e9
+                    else
+                        local orig = fallOrigCache[name]
+                        if orig then
+                            dino.FallDamageHeights.Min = orig.min
+                            dino.FallDamageHeights.Max = orig.max
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+MoveTab:Toggle({
+    Title = "无摔落伤害",
+    Default = false,
+    Callback = function(v)
+        noFallEnabled = v
+        applyNoFallDamage()
+    end,
+})
+table.insert(globalResetCallbacks, function() noFallEnabled = false applyNoFallDamage() end)
+
+local clearVisionEnabled = false
+MoveTab:Toggle({
+    Title = "一键清晰",
+    Default = false,
+    Callback = function(v)
+        clearVisionEnabled = v
+        if v then
+            Lighting.Ambient = Color3.new(1, 1, 1)
+            Lighting.Brightness = 2
+            Lighting.FogEnd = 100000
+            Lighting.GlobalShadows = false
+            for _, effect in ipairs(Lighting:GetDescendants()) do
+                if effect:IsA("PostEffect") then
+                    effect.Enabled = false
+                end
+                if effect:IsA("Atmosphere") then
+                    effect:Destroy()
+                end
+            end
+        else
+            Lighting.Ambient = Color3.new(0, 0, 0)
+            Lighting.Brightness = 1
+            Lighting.FogEnd = 100000
+            Lighting.GlobalShadows = true
+        end
+    end,
+})
+table.insert(globalResetCallbacks, function()
+    clearVisionEnabled = false
+    Lighting.Ambient = Color3.new(0, 0, 0)
+    Lighting.Brightness = 1
+    Lighting.FogEnd = 100000
+    Lighting.GlobalShadows = true
+end)
+
 _G.ESPStyle = {
     NameSize = 12,
     DistanceSize = 10,
@@ -17,117 +400,6 @@ _G.ESPStyle = {
     FadeMaxDist = 500,
 }
 
-local function safeLoadBuilder(url, retryCount)
-    retryCount = retryCount or 3
-    for i = 1, retryCount do
-        local success, response = pcall(function()
-            return game:HttpGet(url)
-        end)
-        if success and response then
-            local f, err = loadstring(response)
-            if f then return f end
-        end
-        task.wait(1)
-    end
-    return nil
-end
-
-local FluentBuilder = safeLoadBuilder("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua")
-if not FluentBuilder then return end
-
-local Fluent = FluentBuilder()
-
-local Window = Fluent:CreateWindow({
-    Title = "恐龙生活 Beta",
-    SubTitle = "by.小梦",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(550, 360),
-    Acrylic = false,
-    Theme = "Darker",
-    MinimizeKey = Enum.KeyCode.LeftControl
-})
-
-local Tabs = {
-    Home = Window:AddTab({ Title = "主页", Icon = "home" }),
-    ESP = Window:AddTab({ Title = "ESP", Icon = "eye" }),
-    Settings = Window:AddTab({ Title = "设置", Icon = "settings" })
-}
-
-do
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "FluentFloatButton"
-    screenGui.ResetOnSpawn = false
-    screenGui.Parent = game:GetService("CoreGui")
-    screenGui.Enabled = true
-
-    local button = Instance.new("ImageButton")
-    button.Size = UDim2.fromOffset(50, 50)
-    button.Position = UDim2.fromOffset(100, 100)
-    button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    button.BackgroundTransparency = 0.2
-    button.Image = "rbxassetid://10709791437"
-    button.ImageColor3 = Color3.fromRGB(255, 255, 255)
-    button.ScaleType = Enum.ScaleType.Fit
-    button.AutoButtonColor = false
-    button.Parent = screenGui
-
-    Instance.new("UICorner", button).CornerRadius = UDim.new(1, 0)
-    local stroke = Instance.new("UIStroke", button)
-    stroke.Thickness = 1
-    stroke.Color = Color3.fromRGB(100, 100, 100)
-    stroke.Transparency = 0.5
-
-    local dragging = false
-    local dragStartPos = nil
-    local buttonStartPos = nil
-    local uis = game:GetService("UserInputService")
-
-    button.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStartPos = input.Position
-            buttonStartPos = button.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                    dragStartPos = nil
-                    buttonStartPos = nil
-                end
-            end)
-        end
-    end)
-
-    uis.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStartPos
-            button.Position = UDim2.fromOffset(buttonStartPos.X.Offset + delta.X, buttonStartPos.Y.Offset + delta.Y)
-        end
-    end)
-
-    button.MouseButton1Click:Connect(function()
-        if Window.Root then Window.Root.Visible = not Window.Root.Visible end
-    end)
-
-    button.MouseEnter:Connect(function()
-        button:TweenSize(UDim2.fromOffset(55, 55), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
-    end)
-    button.MouseLeave:Connect(function()
-        button:TweenSize(UDim2.fromOffset(50, 50), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
-    end)
-end
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-local CoreGui = game:GetService("CoreGui")
-local HttpService = game:GetService("HttpService")
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-
-for _, v in ipairs(CoreGui:GetChildren()) do
-    if v.Name:find("ESP_") then v:Destroy() end
-end
-
 local ESPConfig = {
     Enabled = false,
     ShowName = false,
@@ -141,11 +413,8 @@ local ESPConfig = {
 local playerESPs = {}
 local itemESPs = {}
 
-local function getDistance(part)
-    local char = player.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return 9999 end
-    return (part.Position - root.Position).Magnitude
+for _, v in ipairs(CoreGui:GetChildren()) do
+    if v.Name:find("ESP_") then v:Destroy() end
 end
 
 local function createESPBillboards(plr)
@@ -327,7 +596,7 @@ local function updatePlayerESP(plr)
         fade = math.clamp((dist - minD) / (maxD - minD), 0, 1)
     end
 
-    local blocked = isBehindWall(root)
+    local blocked = (dist > 150) or isBehindWall(root)
     local nameColor = blocked and Color3.new(1, 0, 0) or Color3.new(0, 1, 0)
 
     if not playerESPs[plr] then
@@ -492,6 +761,16 @@ local function removePlayerESP(plr)
     end
 end
 
+local function clearAllESP()
+    for plr, _ in pairs(playerESPs) do
+        removePlayerESP(plr)
+    end
+    for part, data in pairs(itemESPs) do
+        data.billboard:Destroy()
+        itemESPs[part] = nil
+    end
+end
+
 function refreshAllESP()
     for plr, _ in pairs(playerESPs) do
         if not plr.Parent or plr == player then
@@ -500,13 +779,7 @@ function refreshAllESP()
     end
 
     if not ESPConfig.Enabled then
-        for plr, _ in pairs(playerESPs) do
-            removePlayerESP(plr)
-        end
-        for part, data in pairs(itemESPs) do
-            data.billboard:Destroy()
-            itemESPs[part] = nil
-        end
+        clearAllESP()
     else
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= player then
@@ -536,7 +809,7 @@ for _, plr in ipairs(Players:GetPlayers()) do
 end
 
 local lastRefresh = 0
-local REFRESH_INTERVAL = 0.3
+local REFRESH_INTERVAL = 1.0
 RunService.Heartbeat:Connect(function()
     if ESPConfig.Enabled or ESPConfig.ItemESP then
         if (tick() - lastRefresh >= REFRESH_INTERVAL) then
@@ -546,331 +819,40 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-Tabs.ESP:AddToggle("ESPEnabled", {
+ESPTab:Toggle({
     Title = "ESP总开关",
     Default = false,
     Callback = function(v)
         ESPConfig.Enabled = v
         if not v then
-            for plr, _ in pairs(playerESPs) do removePlayerESP(plr) end
-            for part, data in pairs(itemESPs) do
-                data.billboard:Destroy()
-                itemESPs[part] = nil
-            end
+            clearAllESP()
             ESPConfig.ItemESP = false
         end
     end
 })
-Tabs.ESP:AddToggle("ESPShowName", { Title = "显示名称", Default = false, Callback = function(v) ESPConfig.ShowName = v end })
-Tabs.ESP:AddToggle("ESPShowDistance", { Title = "显示距离", Default = false, Callback = function(v) ESPConfig.ShowDistance = v end })
-Tabs.ESP:AddToggle("ESPShowHealth", { Title = "显示血量", Default = false, Callback = function(v) ESPConfig.ShowHealth = v end })
-Tabs.ESP:AddToggle("ESPShowBox", { Title = "显示方框", Default = false, Callback = function(v) ESPConfig.ShowBox = v end })
-Tabs.ESP:AddToggle("ESPItemESP", { Title = "肉/尸体透视", Default = false, Callback = function(v) ESPConfig.ItemESP = v end })
+ESPTab:Toggle({ Title = "显示名称", Default = false, Callback = function(v) ESPConfig.ShowName = v end })
+ESPTab:Toggle({ Title = "显示距离", Default = false, Callback = function(v) ESPConfig.ShowDistance = v end })
+ESPTab:Toggle({ Title = "显示血量", Default = false, Callback = function(v) ESPConfig.ShowHealth = v end })
+ESPTab:Toggle({ Title = "显示方框", Default = false, Callback = function(v) ESPConfig.ShowBox = v end })
+ESPTab:Toggle({ Title = "肉/尸体透视", Default = false, Callback = function(v) ESPConfig.ItemESP = v end })
 
-local infiniteStaminaEnabled = false
-Tabs.Home:AddToggle("InfiniteStamina", {
-    Title = "无限体力",
-    Default = false,
-    Callback = function(v)
-        infiniteStaminaEnabled = v
-        if v then
-            task.spawn(function()
-                while infiniteStaminaEnabled do
-                    local char = player.Character
-                    if char then pcall(function() char:SetAttribute("Stamina", 100) end) end
-                    task.wait(0.1)
-                end
-            end)
-        end
-    end
-})
+table.insert(globalResetCallbacks, function()
+    ESPConfig.Enabled = false
+    ESPConfig.ItemESP = false
+    clearAllESP()
+end)
 
-local sprintBoostEnabled = false
-local BOOST_MULTIPLIER = 1.5
-local sprintOrigCache = {}
-
-local function applySprintBoostToConfig()
-    local char = player.Character
-    if not char then return end
-    local animalName = char:GetAttribute("AnimalName")
-    if not animalName then return end
-
-    local configModule = game:GetService("ReplicatedStorage").Shared.AnimalConfig
-    if not configModule or not configModule:IsA("ModuleScript") then return end
-    local config = require(configModule)
-    if not config then return end
-
-    local dinoConfig
-    for _, cat in ipairs({"LandDinos", "AquaticDinos", "FlyingDinos"}) do
-        if config[cat] and config[cat][animalName] then
-            dinoConfig = config[cat][animalName]
-            break
-        end
-    end
-    if not dinoConfig or not dinoConfig.MaleStats or not dinoConfig.MaleStats.MovementSpeeds then return end
-
-    local speeds = dinoConfig.MaleStats.MovementSpeeds
-    local divider = dinoConfig.BabySpeedReductionDivider
-
-    if sprintBoostEnabled then
-        if not sprintOrigCache[animalName] then
-            sprintOrigCache[animalName] = {
-                sprint = speeds.Sprinting,
-                divider = divider
-            }
-        end
-        speeds.Sprinting = sprintOrigCache[animalName].sprint * BOOST_MULTIPLIER
-        if divider then
-            dinoConfig.BabySpeedReductionDivider = sprintOrigCache[animalName].divider / BOOST_MULTIPLIER
-        end
-    else
-        if sprintOrigCache[animalName] then
-            speeds.Sprinting = sprintOrigCache[animalName].sprint
-            if divider then
-                dinoConfig.BabySpeedReductionDivider = sprintOrigCache[animalName].divider
-            end
-            sprintOrigCache[animalName] = nil
-        end
-    end
-end
-
-local function enableSprintBoost()
-    sprintBoostEnabled = true
-    applySprintBoostToConfig()
-    player.CharacterAdded:Connect(function()
-        if sprintBoostEnabled then
-            task.wait(0.5)
-            applySprintBoostToConfig()
-        end
-    end)
-end
-
-local function disableSprintBoost()
-    sprintBoostEnabled = false
-    applySprintBoostToConfig()
-end
-
-Tabs.Home:AddToggle("SprintBoost", {
-    Title = "冲刺加速",
-    Default = false,
-    Callback = function(v)
-        if v then enableSprintBoost() else disableSprintBoost() end
-    end
-})
-
-local swimBoostEnabled = false
-local SWIM_SPEED = 70
-
-local function applySwimBoostToConfig()
-    local char = player.Character
-    if not char then return end
-    local animalName = char:GetAttribute("AnimalName")
-    if not animalName then return end
-    
-    local configModule = game:GetService("ReplicatedStorage").Shared.AnimalConfig
-    if not configModule or not configModule:IsA("ModuleScript") then return end
-    local config = require(configModule)
-    if not config then return end
-    
-    local categories = {"LandDinos", "AquaticDinos", "FlyingDinos"}
-    for _, cat in ipairs(categories) do
-        local category = config[cat]
-        if category and category[animalName] then
-            local dinoConfig = category[animalName]
-            if dinoConfig.MaleStats and dinoConfig.MaleStats.MovementSpeeds then
-                dinoConfig.MaleStats.MovementSpeeds.Swimming = SWIM_SPEED
-            end
-            if dinoConfig.FreeDiveSwimmingConfig then
-                dinoConfig.FreeDiveSwimmingConfig.SlowSwimSpeed = SWIM_SPEED
-                dinoConfig.FreeDiveSwimmingConfig.FastSwimSpeed = SWIM_SPEED
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        local folder = CoreGui:FindFirstChild("DinoLife")
+        if not folder or not folder.Parent then
+            for _, reset in ipairs(globalResetCallbacks) do
+                pcall(reset)
             end
             break
         end
-    end
-end
-
-local function enableSwimBoost()
-    swimBoostEnabled = true
-    applySwimBoostToConfig()
-    player.CharacterAdded:Connect(function()
-        if swimBoostEnabled then
-            task.wait(0.5)
-            applySwimBoostToConfig()
-        end
-    end)
-end
-
-local function disableSwimBoost()
-    swimBoostEnabled = false
-end
-
-Tabs.Home:AddToggle("SwimBoost", {
-    Title = "游泳加速",
-    Default = false,
-    Callback = function(v)
-        if v then enableSwimBoost() else disableSwimBoost() end
-    end
-})
-
-local noFallEnabled = false
-local fallOrigCache = {}
-
-local function applyNoFallDamage()
-    local configModule = game:GetService("ReplicatedStorage").Shared.AnimalConfig
-    if not configModule or not configModule:IsA("ModuleScript") then return end
-    local config = require(configModule)
-    if not config then return end
-
-    for _, cat in ipairs({"LandDinos", "AquaticDinos", "FlyingDinos"}) do
-        local category = config[cat]
-        if category then
-            for name, dino in pairs(category) do
-                if dino.FallDamageHeights then
-                    if not fallOrigCache[name] then
-                        fallOrigCache[name] = {
-                            min = dino.FallDamageHeights.Min,
-                            max = dino.FallDamageHeights.Max
-                        }
-                    end
-                    if noFallEnabled then
-                        dino.FallDamageHeights.Min = 1e9
-                        dino.FallDamageHeights.Max = 1e9
-                    else
-                        local orig = fallOrigCache[name]
-                        if orig then
-                            dino.FallDamageHeights.Min = orig.min
-                            dino.FallDamageHeights.Max = orig.max
-                        end
-                    end
-                end
-            end
-        end
-    end
-end
-
-Tabs.Home:AddToggle("NoFallDamage", {
-    Title = "无摔落伤害",
-    Default = false,
-    Callback = function(v)
-        noFallEnabled = v
-        applyNoFallDamage()
-    end
-})
-
-local grabNoCooldown = false
-local grabOrigCache = {}
-
-local function applyGrabCooldown()
-    local configModule = game:GetService("ReplicatedStorage").Shared.AnimalConfig
-    if not configModule or not configModule:IsA("ModuleScript") then return end
-    local config = require(configModule)
-    if not config then return end
-
-    for _, cat in ipairs({"LandDinos", "AquaticDinos", "FlyingDinos"}) do
-        local category = config[cat]
-        if category then
-            for name, dino in pairs(category) do
-                if dino.SpecialAttackConfig and dino.SpecialAttackConfig.Type == "Pounce" then
-                    local sac = dino.SpecialAttackConfig
-                    if not grabOrigCache[name] then
-                        grabOrigCache[name] = {
-                            NoHitDebounce = sac.NoHitDebounce,
-                            HitDebounce = sac.HitDebounce
-                        }
-                    end
-                    if grabNoCooldown then
-                        sac.NoHitDebounce = 0
-                        sac.HitDebounce = 0
-                    else
-                        local orig = grabOrigCache[name]
-                        if orig then
-                            sac.NoHitDebounce = orig.NoHitDebounce
-                            sac.HitDebounce = orig.HitDebounce
-                        end
-                    end
-                end
-            end
-        end
-    end
-end
-
-Tabs.Home:AddToggle("GrabNoCooldown", {
-    Title = "抓取无冷却",
-    Default = false,
-    Callback = function(v)
-        grabNoCooldown = v
-        applyGrabCooldown()
-    end
-})
-
-local escapeEnabled = false
-local escapeConnection = nil
-local latchEvent = game:GetService("ReplicatedStorage"):WaitForChild("LatchedPlayersNotifyRemoteEvent")
-
-local function tryEscape()
-    pcall(function()
-        latchEvent:FireServer()
-    end)
-end
-
-local function isLatched()
-    return playerGui:FindFirstChild("ExitLatchScreenGui") ~= nil
-end
-
-local function enableEscape()
-    escapeEnabled = true
-    if escapeConnection then escapeConnection:Disconnect() end
-    escapeConnection = playerGui.DescendantAdded:Connect(function(desc)
-        if desc.Name == "ExitLatchScreenGui" and desc:IsA("ScreenGui") then
-            task.spawn(function()
-                while isLatched() and escapeEnabled do
-                    tryEscape()
-                    task.wait(0.1)
-                end
-            end)
-        end
-    end)
-    if isLatched() then
-        task.spawn(function()
-            while isLatched() and escapeEnabled do
-                tryEscape()
-                task.wait(0.1)
-            end
-        end)
-    end
-end
-
-local function disableEscape()
-    escapeEnabled = false
-    if escapeConnection then
-        escapeConnection:Disconnect()
-        escapeConnection = nil
-    end
-end
-
-Tabs.Home:AddToggle("AutoEscape", {
-    Title = "自动逃脱",
-    Default = false,
-    Callback = function(v)
-        if v then enableEscape() else disableEscape() end
-    end
-})
-
-pcall(function()
-    local SaveManagerBuilder = safeLoadBuilder("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua")
-    local InterfaceManagerBuilder = safeLoadBuilder("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua")
-    if SaveManagerBuilder and InterfaceManagerBuilder then
-        local SaveManager = SaveManagerBuilder()
-        local InterfaceManager = InterfaceManagerBuilder()
-        SaveManager:SetLibrary(Fluent)
-        InterfaceManager:SetLibrary(Fluent)
-        SaveManager:IgnoreThemeSettings()
-        SaveManager:SetIgnoreIndexes({})
-        InterfaceManager:SetFolder("FluentScriptHub")
-        SaveManager:SetFolder("FluentScriptHub/specific-game")
-        InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-        SaveManager:BuildConfigSection(Tabs.Settings)
-        Window:SelectTab(1)
-        SaveManager:LoadAutoloadConfig()
     end
 end)
+
+Window:SelectTab(1)
