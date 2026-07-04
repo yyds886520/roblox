@@ -8,13 +8,31 @@ local playerGui = player:WaitForChild("PlayerGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Lighting = game:GetService("Lighting")
 
+local Folder = "恐龙生活"
+local iconUrl = "https://i.ibb.co/fYdF9KCn/douyin-img-1783071831074.jpg"
+local iconFileName = "float_icon.jpg"
+local iconPath = "WindUI/" .. Folder .. "/assets/" .. iconFileName
+
+local function ensureIcon()
+    if not isfile or not isfolder or not makefolder or not writefile or not getcustomasset then return false end
+    if isfile(iconPath) then return true end
+    local assetsDir = "WindUI/" .. Folder .. "/assets"
+    if not isfolder(assetsDir) then makefolder(assetsDir) end
+    local success, data = pcall(game.HttpGet, game, iconUrl)
+    if success and data then writefile(iconPath, data) return true end
+    return false
+end
+
+local iconAsset
+if ensureIcon() then iconAsset = getcustomasset(iconPath) else iconAsset = "rbxassetid://10709791437" end
+
 local icons = {"skull", "star", "heart", "crown", "shield", "wrench", "rocket", "fire", "bolt", "moon", "sun", "globe", "terminal", "gamepad", "dollar-sign", "gift", "plane", "ship", "car", "bicycle", "tree", "flower", "snowflake", "rainbow", "flask", "atom", "satellite", "wifi", "folder", "calendar", "clock", "alarm", "mail", "phone", "laptop", "play", "pause", "infinity", "thumbs-up", "pray", "yinyang", "earth-americas", "volcano", "campfire", "medkit", "ambulance", "wheelchair", "universal-access", "bug", "lightbulb", "coffee"}
 
 local Window = WindUI:CreateWindow({
     Title = "恐龙生活",
     Icon = icons[math.random(#icons)],
     Author = "by.小梦",
-    Folder = "DinoLife",
+    Folder = Folder,
     Size = UDim2.fromOffset(480, 400),
     Theme = "Dark",
     SideBarWidth = 160,
@@ -23,9 +41,11 @@ local Window = WindUI:CreateWindow({
     User = { Enabled = false },
 })
 
+WindUI:SetNotificationLower(true)
+
 Window:EditOpenButton({
     Title = "打开/关闭",
-    Icon = icons[math.random(#icons)],
+    Icon = iconAsset,
     CornerRadius = UDim.new(0, 8),
     StrokeThickness = 2.5,
     Color = ColorSequence.new({
@@ -40,8 +60,6 @@ Window:EditOpenButton({
     Draggable = true,
 })
 
-local globalResetCallbacks = {}
-
 local CombatTab = Window:Tab({ Title = "战斗", Icon = "swords" })
 local MoveTab = Window:Tab({ Title = "移动", Icon = "run" })
 local ESPTab = Window:Tab({ Title = "ESP", Icon = "eye" })
@@ -49,7 +67,8 @@ local ESPTab = Window:Tab({ Title = "ESP", Icon = "eye" })
 local AttackHandlerEvent = ReplicatedStorage:WaitForChild("AttackHandlerRemoteEvent")
 local SpecialRegularEvent = ReplicatedStorage:WaitForChild("SpecialAttackRemoteEvent_RegularAttack")
 local auraEnabled = false
-local auraThread = nil
+local auraConnection = nil
+local lastAttackTime = 0
 local ATTACK_COOLDOWN = 0.5
 
 local function getAttackEventForCurrentDino()
@@ -67,11 +86,7 @@ local function getAttackEventForCurrentDino()
             local dino = category[animalName]
             if dino.SpecialAttackConfig then
                 local attackType = dino.SpecialAttackConfig.Type
-                if attackType == "Regular" then
-                    return SpecialRegularEvent
-                else
-                    return AttackHandlerEvent
-                end
+                if attackType == "Regular" then return SpecialRegularEvent else return AttackHandlerEvent end
             else
                 return AttackHandlerEvent
             end
@@ -109,28 +124,66 @@ local function getNearestEnemy(range)
     return nearest
 end
 
+local function getNearestNest(range)
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    local nearest, nearestDist = nil, range
+    local nestsFolder = workspace:FindFirstChild("PlayerEggNestsFolder")
+    if nestsFolder then
+        for _, nest in ipairs(nestsFolder:GetChildren()) do
+            if nest:IsA("Model") and nest.Name:find("Nest") then
+                local humanoid = nest:FindFirstChild("Humanoid")
+                local nestRoot = nest:FindFirstChild("HumanoidRootPart") or (humanoid and humanoid.Parent and humanoid.Parent:FindFirstChild("HumanoidRootPart"))
+                if nestRoot and humanoid and humanoid.Health > 0 then
+                    local d = (nestRoot.Position - root.Position).Magnitude
+                    if d < nearestDist then
+                        nearestDist = d
+                        nearest = humanoid
+                    end
+                end
+            end
+        end
+    end
+    return nearest
+end
+
 CombatTab:Toggle({
     Title = "杀戮光环",
     Default = false,
     Callback = function(v)
         auraEnabled = v
         if v then
-            auraThread = task.spawn(function()
-                while auraEnabled do
-                    local target = getNearestEnemy(39)
-                    if target then
-                        doAttack(target)
+            auraConnection = RunService.Heartbeat:Connect(function()
+                local now = os.clock()
+                if now - lastAttackTime < ATTACK_COOLDOWN then return end
+                local enemy = getNearestEnemy(39)
+                local nest = getNearestNest(39)
+                local target = nil
+                if enemy and nest then
+                    local char = player.Character
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
+                    if root then
+                        local d1 = (enemy.Parent:FindFirstChild("HumanoidRootPart").Position - root.Position).Magnitude
+                        local nestRoot = nest.Parent:FindFirstChild("HumanoidRootPart") or nest.Parent:FindFirstChildWhichIsA("BasePart")
+                        local d2 = nestRoot and (nestRoot.Position - root.Position).Magnitude or 9999
+                        target = d1 < d2 and enemy or nest
                     end
-                    task.wait(ATTACK_COOLDOWN)
+                else
+                    target = enemy or nest
+                end
+                if target then
+                    doAttack(target)
+                    lastAttackTime = now
                 end
             end)
+            WindUI:Notify({ Title = "杀戮光环", Content = "已开启", Duration = 2 })
         else
-            auraEnabled = false
-            auraThread = nil
+            if auraConnection then auraConnection:Disconnect() auraConnection = nil end
+            WindUI:Notify({ Title = "杀戮光环", Content = "已关闭", Duration = 2 })
         end
     end,
 })
-table.insert(globalResetCallbacks, function() auraEnabled = false auraThread = nil end)
 
 local latchEvent = ReplicatedStorage:WaitForChild("LatchedPlayersNotifyRemoteEvent")
 local escapeEnabled = false
@@ -144,68 +197,127 @@ local function tryEscape()
     pcall(function() latchEvent:FireServer() end)
 end
 
-local function enableEscape()
-    escapeEnabled = true
-    if escapeConnection then escapeConnection:Disconnect() end
-    escapeConnection = playerGui.DescendantAdded:Connect(function(desc)
-        if desc.Name == "ExitLatchScreenGui" and desc:IsA("ScreenGui") then
-            task.spawn(function()
-                while isLatched() and escapeEnabled do
-                    tryEscape()
-                    task.wait(0.1)
-                end
-            end)
-        end
-    end)
-    if isLatched() then
-        task.spawn(function()
-            while isLatched() and escapeEnabled do
-                tryEscape()
-                task.wait(0.1)
-            end
-        end)
-    end
-end
-
-local function disableEscape()
-    escapeEnabled = false
-    if escapeConnection then
-        escapeConnection:Disconnect()
-        escapeConnection = nil
-    end
-end
-
 CombatTab:Toggle({
     Title = "自动逃脱",
     Default = false,
     Callback = function(v)
-        if v then enableEscape() else disableEscape() end
+        escapeEnabled = v
+        if v then
+            if escapeConnection then escapeConnection:Disconnect() end
+            escapeConnection = playerGui.DescendantAdded:Connect(function(desc)
+                if desc.Name == "ExitLatchScreenGui" and desc:IsA("ScreenGui") then
+                    task.spawn(function()
+                        while isLatched() and escapeEnabled do tryEscape() task.wait(0.1) end
+                    end)
+                end
+            end)
+            if isLatched() then
+                task.spawn(function()
+                    while isLatched() and escapeEnabled do tryEscape() task.wait(0.1) end
+                end)
+            end
+            WindUI:Notify({ Title = "自动逃脱", Content = "已开启", Duration = 2 })
+        else
+            if escapeConnection then escapeConnection:Disconnect() escapeConnection = nil end
+            WindUI:Notify({ Title = "自动逃脱", Content = "已关闭", Duration = 2 })
+        end
     end,
 })
-table.insert(globalResetCallbacks, disableEscape)
+
+local noCooldownEnabled = false
+local cooldownOrigCache = {}
+
+local function applyNoCooldown()
+    local configModule = ReplicatedStorage.Shared.AnimalConfig
+    if not configModule or not configModule:IsA("ModuleScript") then return end
+    local config = require(configModule)
+    if not config then return end
+    for _, cat in ipairs({"LandDinos", "AquaticDinos", "FlyingDinos"}) do
+        local category = config[cat]
+        if category then
+            for name, dino in pairs(category) do
+                if not cooldownOrigCache[name] then cooldownOrigCache[name] = {} end
+                if dino.SpecialAttackConfig then
+                    if not cooldownOrigCache[name].specialDebounce then cooldownOrigCache[name].specialDebounce = dino.SpecialAttackConfig.Debounce end
+                    if not cooldownOrigCache[name].specialNoHitDebounce then cooldownOrigCache[name].specialNoHitDebounce = dino.SpecialAttackConfig.NoHitDebounce end
+                    if not cooldownOrigCache[name].specialHitDebounce then cooldownOrigCache[name].specialHitDebounce = dino.SpecialAttackConfig.HitDebounce end
+                    dino.SpecialAttackConfig.Debounce = 0
+                    dino.SpecialAttackConfig.NoHitDebounce = 0
+                    dino.SpecialAttackConfig.HitDebounce = 0
+                end
+                if not cooldownOrigCache[name].jumpDebounce then cooldownOrigCache[name].jumpDebounce = dino.JumpDebounce end
+                dino.JumpDebounce = 0
+                if dino.AttackParts and dino.AttackParts.M1 then
+                    if not cooldownOrigCache[name].m1Debounce then cooldownOrigCache[name].m1Debounce = dino.AttackParts.M1.DebounceOverride end
+                    dino.AttackParts.M1.DebounceOverride = 0
+                end
+            end
+        end
+    end
+end
+
+local function restoreCooldown()
+    local configModule = ReplicatedStorage.Shared.AnimalConfig
+    if not configModule or not configModule:IsA("ModuleScript") then return end
+    local config = require(configModule)
+    if not config then return end
+    for _, cat in ipairs({"LandDinos", "AquaticDinos", "FlyingDinos"}) do
+        local category = config[cat]
+        if category then
+            for name, dino in pairs(category) do
+                local orig = cooldownOrigCache[name]
+                if orig then
+                    if orig.specialDebounce and dino.SpecialAttackConfig then
+                        dino.SpecialAttackConfig.Debounce = orig.specialDebounce
+                        dino.SpecialAttackConfig.NoHitDebounce = orig.specialNoHitDebounce
+                        dino.SpecialAttackConfig.HitDebounce = orig.specialHitDebounce
+                    end
+                    if orig.jumpDebounce then dino.JumpDebounce = orig.jumpDebounce end
+                    if orig.m1Debounce and dino.AttackParts and dino.AttackParts.M1 then
+                        dino.AttackParts.M1.DebounceOverride = orig.m1Debounce
+                    end
+                end
+            end
+        end
+    end
+    cooldownOrigCache = {}
+end
+
+CombatTab:Toggle({
+    Title = "无冷却",
+    Default = false,
+    Callback = function(v)
+        noCooldownEnabled = v
+        if v then
+            applyNoCooldown()
+            WindUI:Notify({ Title = "无冷却", Content = "已开启", Duration = 2 })
+        else
+            restoreCooldown()
+            WindUI:Notify({ Title = "无冷却", Content = "已关闭", Duration = 2 })
+        end
+    end,
+})
 
 local infiniteStaminaEnabled = false
-local staminaThread = nil
 MoveTab:Toggle({
     Title = "无限体力",
     Default = false,
     Callback = function(v)
         infiniteStaminaEnabled = v
         if v then
-            staminaThread = task.spawn(function()
+            task.spawn(function()
                 while infiniteStaminaEnabled do
                     local char = player.Character
                     if char then pcall(function() char:SetAttribute("Stamina", 100) end) end
                     task.wait(0.1)
                 end
             end)
+            WindUI:Notify({ Title = "无限体力", Content = "已开启", Duration = 2 })
         else
-            infiniteStaminaEnabled = false
-            staminaThread = nil
+            WindUI:Notify({ Title = "无限体力", Content = "已关闭", Duration = 2 })
         end
     end,
 })
-table.insert(globalResetCallbacks, function() infiniteStaminaEnabled = false staminaThread = nil end)
 
 local sprintBoostEnabled = false
 local sprintOrigCache = {}
@@ -222,31 +334,19 @@ local function applySprintBoostToConfig()
     if not config then return end
     local dinoConfig
     for _, cat in ipairs({"LandDinos", "AquaticDinos", "FlyingDinos"}) do
-        if config[cat] and config[cat][animalName] then
-            dinoConfig = config[cat][animalName]
-            break
-        end
+        if config[cat] and config[cat][animalName] then dinoConfig = config[cat][animalName] break end
     end
     if not dinoConfig or not dinoConfig.MaleStats or not dinoConfig.MaleStats.MovementSpeeds then return end
     local speeds = dinoConfig.MaleStats.MovementSpeeds
     local divider = dinoConfig.BabySpeedReductionDivider
     if sprintBoostEnabled then
-        if not sprintOrigCache[animalName] then
-            sprintOrigCache[animalName] = {
-                sprint = speeds.Sprinting,
-                divider = divider
-            }
-        end
+        if not sprintOrigCache[animalName] then sprintOrigCache[animalName] = { sprint = speeds.Sprinting, divider = divider } end
         speeds.Sprinting = sprintOrigCache[animalName].sprint * BOOST_MULTIPLIER
-        if divider then
-            dinoConfig.BabySpeedReductionDivider = sprintOrigCache[animalName].divider / BOOST_MULTIPLIER
-        end
+        if divider then dinoConfig.BabySpeedReductionDivider = sprintOrigCache[animalName].divider / BOOST_MULTIPLIER end
     else
         if sprintOrigCache[animalName] then
             speeds.Sprinting = sprintOrigCache[animalName].sprint
-            if divider then
-                dinoConfig.BabySpeedReductionDivider = sprintOrigCache[animalName].divider
-            end
+            if divider then dinoConfig.BabySpeedReductionDivider = sprintOrigCache[animalName].divider end
             sprintOrigCache[animalName] = nil
         end
     end
@@ -258,12 +358,17 @@ MoveTab:Toggle({
     Callback = function(v)
         sprintBoostEnabled = v
         applySprintBoostToConfig()
+        if v then
+            WindUI:Notify({ Title = "冲刺加速", Content = "已开启", Duration = 2 })
+        else
+            WindUI:Notify({ Title = "冲刺加速", Content = "已关闭", Duration = 2 })
+        end
     end,
 })
-table.insert(globalResetCallbacks, function() sprintBoostEnabled = false applySprintBoostToConfig() end)
 
 local swimBoostEnabled = false
 local SWIM_SPEED = 70
+local swimOrigCache = {}
 
 local function applySwimBoostToConfig()
     local char = player.Character
@@ -279,6 +384,13 @@ local function applySwimBoostToConfig()
         local category = config[cat]
         if category and category[animalName] then
             local dinoConfig = category[animalName]
+            if not swimOrigCache[animalName] then
+                swimOrigCache[animalName] = {
+                    swim = dinoConfig.MaleStats and dinoConfig.MaleStats.MovementSpeeds and dinoConfig.MaleStats.MovementSpeeds.Swimming,
+                    slow = dinoConfig.FreeDiveSwimmingConfig and dinoConfig.FreeDiveSwimmingConfig.SlowSwimSpeed,
+                    fast = dinoConfig.FreeDiveSwimmingConfig and dinoConfig.FreeDiveSwimmingConfig.FastSwimSpeed
+                }
+            end
             if dinoConfig.MaleStats and dinoConfig.MaleStats.MovementSpeeds then
                 dinoConfig.MaleStats.MovementSpeeds.Swimming = SWIM_SPEED
             end
@@ -291,15 +403,47 @@ local function applySwimBoostToConfig()
     end
 end
 
+local function restoreSwimSpeed()
+    local char = player.Character
+    if not char then return end
+    local animalName = char:GetAttribute("AnimalName")
+    if not animalName or not swimOrigCache[animalName] then return end
+    local configModule = ReplicatedStorage.Shared.AnimalConfig
+    if not configModule or not configModule:IsA("ModuleScript") then return end
+    local config = require(configModule)
+    if not config then return end
+    for _, cat in ipairs({"LandDinos", "AquaticDinos", "FlyingDinos"}) do
+        local category = config[cat]
+        if category and category[animalName] then
+            local dinoConfig = category[animalName]
+            local orig = swimOrigCache[animalName]
+            if dinoConfig.MaleStats and dinoConfig.MaleStats.MovementSpeeds then
+                dinoConfig.MaleStats.MovementSpeeds.Swimming = orig.swim
+            end
+            if dinoConfig.FreeDiveSwimmingConfig then
+                dinoConfig.FreeDiveSwimmingConfig.SlowSwimSpeed = orig.slow
+                dinoConfig.FreeDiveSwimmingConfig.FastSwimSpeed = orig.fast
+            end
+            break
+        end
+    end
+    swimOrigCache[animalName] = nil
+end
+
 MoveTab:Toggle({
     Title = "游泳加速",
     Default = false,
     Callback = function(v)
         swimBoostEnabled = v
-        if v then applySwimBoostToConfig() end
+        if v then
+            applySwimBoostToConfig()
+            WindUI:Notify({ Title = "游泳加速", Content = "已开启", Duration = 2 })
+        else
+            restoreSwimSpeed()
+            WindUI:Notify({ Title = "游泳加速", Content = "已关闭", Duration = 2 })
+        end
     end,
 })
-table.insert(globalResetCallbacks, function() swimBoostEnabled = false end)
 
 local noFallEnabled = false
 local fallOrigCache = {}
@@ -314,12 +458,7 @@ local function applyNoFallDamage()
         if category then
             for name, dino in pairs(category) do
                 if dino.FallDamageHeights then
-                    if not fallOrigCache[name] then
-                        fallOrigCache[name] = {
-                            min = dino.FallDamageHeights.Min,
-                            max = dino.FallDamageHeights.Max
-                        }
-                    end
+                    if not fallOrigCache[name] then fallOrigCache[name] = { min = dino.FallDamageHeights.Min, max = dino.FallDamageHeights.Max } end
                     if noFallEnabled then
                         dino.FallDamageHeights.Min = 1e9
                         dino.FallDamageHeights.Max = 1e9
@@ -337,14 +476,49 @@ local function applyNoFallDamage()
 end
 
 MoveTab:Toggle({
-    Title = "无摔落伤害",
+    Title = "坠地免伤",
     Default = false,
     Callback = function(v)
         noFallEnabled = v
         applyNoFallDamage()
+        if v then WindUI:Notify({ Title = "坠地免伤", Content = "已开启", Duration = 2 }) else WindUI:Notify({ Title = "坠地免伤", Content = "已关闭", Duration = 2 }) end
     end,
 })
-table.insert(globalResetCallbacks, function() noFallEnabled = false applyNoFallDamage() end)
+
+local instantRecoverEnabled = false
+MoveTab:Toggle({
+    Title = "免疫眩晕",
+    Default = false,
+    Callback = function(v)
+        instantRecoverEnabled = v
+        if v then
+            task.spawn(function()
+                local function onCharacterAdded(char)
+                    local humanoid = char:WaitForChild("Humanoid", 5)
+                    if not humanoid then return end
+                    local conn = char:GetAttributeChangedSignal("MovementDisabled"):Connect(function()
+                        if char:GetAttribute("MovementDisabled") then pcall(function() char:SetAttribute("MovementDisabled", false) end) end
+                    end)
+                    local conn2 = char:GetAttributeChangedSignal("IsRagdolled"):Connect(function()
+                        if char:GetAttribute("IsRagdolled") then pcall(function() char:SetAttribute("IsRagdolled", false) end) end
+                    end)
+                    humanoid.StateChanged:Connect(function(_, newState)
+                        if newState == Enum.HumanoidStateType.Physics or newState == Enum.HumanoidStateType.GettingUp then
+                            pcall(function() humanoid:ChangeState(Enum.HumanoidStateType.Running) end)
+                            pcall(function() char:SetAttribute("IsRagdolled", false) end)
+                            pcall(function() char:SetAttribute("MovementDisabled", false) end)
+                            local changeState = char:FindFirstChild("ChangeStateBindableEvent")
+                            if changeState then pcall(function() changeState:Fire("Idling") end) end
+                        end
+                    end)
+                end
+                if player.Character then onCharacterAdded(player.Character) end
+                player.CharacterAdded:Connect(onCharacterAdded)
+            end)
+            WindUI:Notify({ Title = "免疫眩晕", Content = "已开启", Duration = 2 })
+        end
+    end,
+})
 
 local clearVisionEnabled = false
 MoveTab:Toggle({
@@ -358,12 +532,8 @@ MoveTab:Toggle({
             Lighting.FogEnd = 100000
             Lighting.GlobalShadows = false
             for _, effect in ipairs(Lighting:GetDescendants()) do
-                if effect:IsA("PostEffect") then
-                    effect.Enabled = false
-                end
-                if effect:IsA("Atmosphere") then
-                    effect:Destroy()
-                end
+                if effect:IsA("PostEffect") then effect.Enabled = false end
+                if effect:IsA("Atmosphere") then effect:Destroy() end
             end
         else
             Lighting.Ambient = Color3.new(0, 0, 0)
@@ -373,49 +543,19 @@ MoveTab:Toggle({
         end
     end,
 })
-table.insert(globalResetCallbacks, function()
-    clearVisionEnabled = false
-    Lighting.Ambient = Color3.new(0, 0, 0)
-    Lighting.Brightness = 1
-    Lighting.FogEnd = 100000
-    Lighting.GlobalShadows = true
-end)
 
 _G.ESPStyle = {
-    NameSize = 12,
-    DistanceSize = 10,
-    HealthTextSize = 9,
-    BarWidth = 3,
-    BarHeight = 24,
-    NameOffset = Vector3.new(0, 4, 0),
-    HealthOffset = Vector3.new(3.5, 0, 0),
-    DistanceOffset = Vector3.new(0, -3.5, 0),
-    ScaleEnabled = true,
-    ScaleMinDist = 20,
-    ScaleMaxDist = 300,
-    ScaleMin = 0.7,
-    ScaleMax = 1.3,
-    FadeEnabled = false,
-    FadeMinDist = 30,
-    FadeMaxDist = 500,
+    NameSize = 12, DistanceSize = 10, HealthTextSize = 9, BarWidth = 3, BarHeight = 24,
+    NameOffset = Vector3.new(0, 4, 0), HealthOffset = Vector3.new(3.5, 0, 0), DistanceOffset = Vector3.new(0, -3.5, 0),
+    ScaleEnabled = true, ScaleMinDist = 20, ScaleMaxDist = 300, ScaleMin = 0.7, ScaleMax = 1.3,
+    FadeEnabled = false, FadeMinDist = 30, FadeMaxDist = 500,
 }
 
-local ESPConfig = {
-    Enabled = false,
-    ShowName = false,
-    ShowDistance = false,
-    ShowHealth = false,
-    ShowBox = false,
-    ItemESP = false,
-    MaxDistance = math.huge
-}
-
+local ESPConfig = { Enabled = false, ShowName = true, ShowDistance = true, ShowHealth = true, ShowBox = true, ItemESP = true, MaxDistance = math.huge }
 local playerESPs = {}
 local itemESPs = {}
 
-for _, v in ipairs(CoreGui:GetChildren()) do
-    if v.Name:find("ESP_") then v:Destroy() end
-end
+for _, v in ipairs(CoreGui:GetChildren()) do if v.Name:find("ESP_") then v:Destroy() end end
 
 local function createESPBillboards(plr)
     local nameTag = Instance.new("BillboardGui")
@@ -525,16 +665,9 @@ local function createESPBillboards(plr)
     end
 
     return {
-        nameTag = nameTag,
-        nameLabel = nameLabel,
-        nameScale = nameScale,
-        healthTag = healthTag,
-        percentLabel = percentLabel,
-        barFill = barFill,
-        healthScale = healthScale,
-        distanceTag = distanceTag,
-        distLabel = distLabel,
-        distanceScale = distanceScale,
+        nameTag = nameTag, nameLabel = nameLabel, nameScale = nameScale,
+        healthTag = healthTag, percentLabel = percentLabel, barFill = barFill, healthScale = healthScale,
+        distanceTag = distanceTag, distLabel = distLabel, distanceScale = distanceScale,
         highlight = highlight
     }
 end
@@ -730,9 +863,7 @@ local function refreshItemESP()
         for _, model in ipairs(meatFolder:GetChildren()) do
             if model:IsA("Model") then
                 local mainPart = model:FindFirstChild(model.Name) or model.PrimaryPart
-                if mainPart and not itemESPs[mainPart] then
-                    createItemESP(mainPart, "肉")
-                end
+                if mainPart and not itemESPs[mainPart] then createItemESP(mainPart, "肉") end
             end
         end
     end
@@ -742,9 +873,7 @@ local function refreshItemESP()
         for _, model in ipairs(carcassFolder:GetChildren()) do
             if model:IsA("Model") then
                 local mainPart = model:FindFirstChild("Body") or model.PrimaryPart
-                if mainPart and not itemESPs[mainPart] then
-                    createItemESP(mainPart, "尸体")
-                end
+                if mainPart and not itemESPs[mainPart] then createItemESP(mainPart, "尸体") end
             end
         end
     end
@@ -761,30 +890,17 @@ local function removePlayerESP(plr)
     end
 end
 
-local function clearAllESP()
-    for plr, _ in pairs(playerESPs) do
-        removePlayerESP(plr)
-    end
-    for part, data in pairs(itemESPs) do
-        data.billboard:Destroy()
-        itemESPs[part] = nil
-    end
-end
-
 function refreshAllESP()
     for plr, _ in pairs(playerESPs) do
-        if not plr.Parent or plr == player then
-            removePlayerESP(plr)
-        end
+        if not plr.Parent or plr == player then removePlayerESP(plr) end
     end
 
     if not ESPConfig.Enabled then
-        clearAllESP()
+        for plr, _ in pairs(playerESPs) do removePlayerESP(plr) end
+        for part, data in pairs(itemESPs) do data.billboard:Destroy() itemESPs[part] = nil end
     else
         for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= player then
-                updatePlayerESP(plr)
-            end
+            if plr ~= player then updatePlayerESP(plr) end
         end
         refreshItemESP()
     end
@@ -809,7 +925,7 @@ for _, plr in ipairs(Players:GetPlayers()) do
 end
 
 local lastRefresh = 0
-local REFRESH_INTERVAL = 1.0
+local REFRESH_INTERVAL = 0.5
 RunService.Heartbeat:Connect(function()
     if ESPConfig.Enabled or ESPConfig.ItemESP then
         if (tick() - lastRefresh >= REFRESH_INTERVAL) then
@@ -825,34 +941,20 @@ ESPTab:Toggle({
     Callback = function(v)
         ESPConfig.Enabled = v
         if not v then
-            clearAllESP()
+            for plr, _ in pairs(playerESPs) do removePlayerESP(plr) end
+            for part, data in pairs(itemESPs) do data.billboard:Destroy() itemESPs[part] = nil end
             ESPConfig.ItemESP = false
+            WindUI:Notify({ Title = "ESP总开关", Content = "已关闭", Duration = 2 })
+        else
+            ESPConfig.ItemESP = true
+            WindUI:Notify({ Title = "ESP总开关", Content = "已开启", Duration = 2 })
         end
     end
 })
-ESPTab:Toggle({ Title = "显示名称", Default = false, Callback = function(v) ESPConfig.ShowName = v end })
-ESPTab:Toggle({ Title = "显示距离", Default = false, Callback = function(v) ESPConfig.ShowDistance = v end })
-ESPTab:Toggle({ Title = "显示血量", Default = false, Callback = function(v) ESPConfig.ShowHealth = v end })
-ESPTab:Toggle({ Title = "显示方框", Default = false, Callback = function(v) ESPConfig.ShowBox = v end })
-ESPTab:Toggle({ Title = "肉/尸体透视", Default = false, Callback = function(v) ESPConfig.ItemESP = v end })
-
-table.insert(globalResetCallbacks, function()
-    ESPConfig.Enabled = false
-    ESPConfig.ItemESP = false
-    clearAllESP()
-end)
-
-task.spawn(function()
-    while true do
-        task.wait(0.5)
-        local folder = CoreGui:FindFirstChild("DinoLife")
-        if not folder or not folder.Parent then
-            for _, reset in ipairs(globalResetCallbacks) do
-                pcall(reset)
-            end
-            break
-        end
-    end
-end)
+ESPTab:Toggle({ Title = "显示名称", Default = true, Callback = function(v) ESPConfig.ShowName = v end })
+ESPTab:Toggle({ Title = "显示距离", Default = true, Callback = function(v) ESPConfig.ShowDistance = v end })
+ESPTab:Toggle({ Title = "显示血量", Default = true, Callback = function(v) ESPConfig.ShowHealth = v end })
+ESPTab:Toggle({ Title = "显示方框", Default = true, Callback = function(v) ESPConfig.ShowBox = v end })
+ESPTab:Toggle({ Title = "肉/尸体透视", Default = true, Callback = function(v) ESPConfig.ItemESP = v end })
 
 Window:SelectTab(1)
