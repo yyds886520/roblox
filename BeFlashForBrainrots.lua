@@ -401,6 +401,13 @@ end
 
 local function startAntiAFK()
     if antiAFKThread then return end
+    local char = player.Character
+    if char then
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if root then
+            root.CFrame = CFrame.new(7.91, 3.00, -14801.50)
+        end
+    end
     antiAFKThread = coroutine.create(function()
         while antiAFKEnabled do
             antiAFKMove()
