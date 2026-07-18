@@ -161,7 +161,8 @@ end
 local autoRunEnabled = false
 local autoRunHeartbeat, childRemovedCon, charAddedCon
 local lastEquipTime = 0
-local equipCooldown = 1.0
+local equipCooldown = 0.8
+local rearmCheckThread = nil
 
 local function fireConnections(obj)
     if not obj then return end
@@ -252,56 +253,51 @@ end
 
 local autoAttributeEnabled = false
 local autoAttributeHeartbeat
-local lastClickedBtn = nil
-local lastClickTime = 0
+
+local function clickQTEFrame(frame)
+    local btn = frame:FindFirstChildWhichIsA("ImageButton")
+    if not btn then return end
+    local conns = getconnections(btn.MouseButton1Click)
+    if #conns > 0 then
+        for _, c in ipairs(conns) do pcall(c.Function) end
+    else
+        conns = getconnections(btn.Activated)
+        for _, c in ipairs(conns) do pcall(c.Function) end
+    end
+end
+
+playerGui.ChildAdded:Connect(function(child)
+    if not autoAttributeEnabled then return end
+    if child.Name == "BifrostImageQTE" then
+        task.wait(0.2)
+        for _, frame in ipairs(child:GetChildren()) do
+            if frame:IsA("Frame") then
+                frame.Name = "Hacker"
+                clickQTEFrame(frame)
+                break
+            end
+        end
+    end
+end)
 
 local function startAutoAttribute()
     autoAttributeHeartbeat = runService.Heartbeat:Connect(function()
         if not autoAttributeEnabled then return end
-        
+
         local bifrost = playerGui:FindFirstChild("BifrostImageQTE")
         if bifrost then
-            for _, child in ipairs(bifrost:GetChildren()) do
-                if child:IsA("Frame") or child:IsA("ImageLabel") then
-                    local btn = child:FindFirstChild("ImageButton")
-                    if btn and btn.Visible then
-                        local btnPath = btn:GetFullName()
-                        local now = os.clock()
-                        if btnPath ~= lastClickedBtn or (now - lastClickTime > 0.3) then
-                            lastClickedBtn = btnPath
-                            lastClickTime = now
-                            fireConnections(btn)
-                        end
-                    end
+            for _, frame in ipairs(bifrost:GetChildren()) do
+                if frame:IsA("Frame") then
+                    clickQTEFrame(frame)
                 end
             end
         end
-        
-        local staminaBtn = playerGui:FindFirstChild("BifrostImageQTE") and playerGui.BifrostImageQTE:FindFirstChild("StaminaBoost")
-        if staminaBtn then
-            local btn = staminaBtn:FindFirstChild("ImageButton")
-            if btn and btn.Visible then
-                local btnPath = btn:GetFullName()
-                local now = os.clock()
-                if btnPath ~= lastClickedBtn or (now - lastClickTime > 0.3) then
-                    lastClickedBtn = btnPath
-                    lastClickTime = now
-                    fireConnections(btn)
-                end
-            end
-        end
-        
-        local promptBtn = playerGui:FindFirstChild("ProximityPrompts") and playerGui.ProximityPrompts:FindFirstChild("Prompt")
-        if promptBtn then
-            local btn = promptBtn:FindFirstChild("TextButton")
-            if btn and btn.Visible then
-                local btnPath = btn:GetFullName()
-                local now = os.clock()
-                if btnPath ~= lastClickedBtn or (now - lastClickTime > 0.05) then
-                    lastClickedBtn = btnPath
-                    lastClickTime = now
-                    fireConnections(btn)
-                end
+
+        local paradox = playerGui:FindFirstChild("ParadoxQTEGui")
+        if paradox then
+            local container = paradox:FindFirstChild("ParadoxContainer")
+            if container and container:IsA("Frame") then
+                clickQTEFrame(container)
             end
         end
     end)
@@ -312,8 +308,6 @@ local function stopAutoAttribute()
         autoAttributeHeartbeat:Disconnect()
         autoAttributeHeartbeat = nil
     end
-    lastClickedBtn = nil
-    lastClickTime = 0
 end
 
 local function getMyHomeRoot()
@@ -388,6 +382,24 @@ end
 
 local antiAFKEnabled = false
 local antiAFKThread = nil
+local clientPlatform = nil
+
+local function createClientPlatform()
+    if clientPlatform and clientPlatform.Parent then
+        return clientPlatform
+    end
+    local part = Instance.new("Part")
+    part.Name = "ClientAntiAFKPlatform"
+    part.Size = Vector3.new(10000, 1, 10000)
+    part.Anchored = true
+    part.CanCollide = true
+    part.Transparency = 0.5
+    part.Color = Color3.fromRGB(255, 182, 193)
+    part.Position = Vector3.new(0, 5000, 0)
+    part.Parent = workspace
+    clientPlatform = part
+    return part
+end
 
 local function antiAFKMove()
     local P = player
@@ -401,17 +413,18 @@ end
 
 local function startAntiAFK()
     if antiAFKThread then return end
+    local platform = createClientPlatform()
     local char = player.Character
     if char then
         local root = char:FindFirstChild("HumanoidRootPart")
         if root then
-            root.CFrame = CFrame.new(7.91, 3.00, -14801.50)
+            root.CFrame = CFrame.new(platform.Position + Vector3.new(0, 5, 0))
         end
     end
     antiAFKThread = coroutine.create(function()
         while antiAFKEnabled do
             antiAFKMove()
-            wait(10)
+            task.wait(10)
         end
     end)
     coroutine.resume(antiAFKThread)
@@ -476,7 +489,7 @@ authorRow.Parent = contentFrame
 local authorLabel = Instance.new("TextLabel")
 authorLabel.Size = UDim2.new(1, 0, 1, 0)
 authorLabel.BackgroundTransparency = 1
-authorLabel.Text = "作者 by小梦"
+authorLabel.Text = "by.小梦"
 authorLabel.TextColor3 = Color3.fromRGB(0, 150, 255)
 authorLabel.Font = Enum.Font.GothamBold
 authorLabel.TextSize = 15
