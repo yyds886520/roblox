@@ -44,7 +44,21 @@ local function translateText(text)
     return text
 end
 
-local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+local function loadWindUI()
+    local ok, result = pcall(function()
+        return loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+    end)
+    if ok and result then return result end
+    local ok2, result2 = pcall(function()
+        return loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+    end)
+    if ok2 and result2 then return result2 end
+    return nil
+end
+
+local WindUI = loadWindUI()
+if not WindUI then print("WindUI加载失败，请检查注入器网络权限") return end
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -709,4 +723,436 @@ player.CharacterAdded:Connect(function()
     if staminaConnection then
         staminaConnection:Disconnect()
         local charData = char:WaitForChild("CharacterData")
-        local stamina = charData:WaitForChild
+        local stamina = charData:WaitForChild("Stamina")
+        local maxStamina = charData:WaitForChild("MaxStamina")
+        staminaConnection = RunService.Heartbeat:Connect(function() stamina.Value = maxStamina.Value end)
+    end
+    if sprintEnabled then
+        if speedConnection then speedConnection:Disconnect() end
+        local charData = char:WaitForChild("CharacterData")
+        local sprintingAndMoving = charData:WaitForChild("SprintingAndMoving")
+        local humanoid = char:WaitForChild("Humanoid")
+        speedConnection = RunService.RenderStepped:Connect(function()
+            if sprintingAndMoving.Value == true then humanoid.WalkSpeed = sprintSpeed end
+        end)
+    end
+    if infiniteJumpEnabled then
+        if infJumpConnection then infJumpConnection:Disconnect() end
+        infJumpConnection = UserInputService.JumpRequest:Connect(function()
+            if infiniteJumpEnabled then
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                if humanoid then humanoid:ChangeState("Jumping") end
+            end
+        end)
+    end
+end)
+
+local npcESPEnabled = false
+local npcHighlights = {}
+local npcBillboards = {}
+
+local function removeNPCESP(npc)
+    if npcHighlights[npc] then npcHighlights[npc]:Destroy() npcHighlights[npc] = nil end
+    if npcBillboards[npc] then npcBillboards[npc]:Destroy() npcBillboards[npc] = nil end
+end
+
+local function createNPCESP(npc)
+    local highlight = Instance.new("Highlight")
+    highlight.FillColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.75
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.OutlineTransparency = 0.3
+    highlight.Adornee = npc
+    highlight.Parent = npc
+    npcHighlights[npc] = highlight
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Size = UDim2.new(0, 100, 0, 20)
+    billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = 500
+    billboard.Adornee = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart or npc
+    billboard.Parent = npc
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    label.TextStrokeTransparency = 0.8
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 13
+    label.Text = "[--.--]"
+    label.Parent = billboard
+    npcBillboards[npc] = billboard
+end
+
+local function updateNPCESP()
+    if not npcESPEnabled then return end
+    local enemiesFolder = workspace:FindFirstChild("Enemies")
+    if not enemiesFolder then return end
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local playerPos = root and root.Position
+
+    for _, npc in ipairs(enemiesFolder:GetChildren()) do
+        if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
+            if not npcHighlights[npc] then createNPCESP(npc) end
+            if playerPos and npcBillboards[npc] then
+                local part = npc:FindFirstChild("HumanoidRootPart") or npc.PrimaryPart
+                if part then
+                    local dist = (part.Position - playerPos).Magnitude
+                    local label = npcBillboards[npc]:FindFirstChildWhichIsA("TextLabel")
+                    if label then label.Text = string.format("[%.2f]", dist) end
+                end
+            end
+        else
+            removeNPCESP(npc)
+        end
+    end
+    for npc, _ in pairs(npcHighlights) do
+        if not npc.Parent or npc.Parent ~= enemiesFolder then removeNPCESP(npc) end
+    end
+end
+
+ESPTab:Toggle({
+    Title = "NPC透视",
+    Default = false,
+    Callback = function(state)
+        npcESPEnabled = state
+        if state then
+            task.spawn(function()
+                while npcESPEnabled do updateNPCESP() task.wait(0.3) end
+                for npc in pairs(npcHighlights) do removeNPCESP(npc) end
+            end)
+        else
+            for npc in pairs(npcHighlights) do removeNPCESP(npc) end
+        end
+    end
+})
+
+local itemESPEnabled = false
+local itemBillboards = {}
+
+local function removeItemESP(tool)
+    if itemBillboards[tool] then itemBillboards[tool]:Destroy() itemBillboards[tool] = nil end
+end
+
+local function createItemESP(tool)
+    local handle = tool:FindFirstChild("Handle")
+    if not handle then return end
+    local cn = translateText(tool.Name)
+    local color = Color3.fromRGB(255, 200, 100)
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Size = UDim2.new(0, 100, 0, 20)
+    billboard.StudsOffset = Vector3.new(0, 1.5, 0)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = 300
+    billboard.Adornee = handle
+    billboard.Parent = tool
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = cn
+    label.TextColor3 = color
+    label.TextStrokeTransparency = 0.7
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 12
+    label.Parent = billboard
+    itemBillboards[tool] = billboard
+end
+
+local function updateItemESP()
+    if not itemESPEnabled then return end
+    local folder = Workspace.Map.Util.Items
+    if not folder then return end
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local playerPos = root and root.Position
+
+    for _, obj in ipairs(folder:GetDescendants()) do
+        if obj:IsA("Tool") and not obj:FindFirstAncestorOfClass("Backpack") then
+            if not itemBillboards[obj] then createItemESP(obj) end
+            if playerPos and itemBillboards[obj] then
+                local handle = obj:FindFirstChild("Handle")
+                if handle then
+                    local dist = (handle.Position - playerPos).Magnitude
+                    local label = itemBillboards[obj]:FindFirstChildWhichIsA("TextLabel")
+                    if label then
+                        local cn = translateText(obj.Name)
+                        label.Text = cn .. " [" .. string.format("%.2f", dist) .. "]"
+                    end
+                end
+            end
+        end
+    end
+    for tool, _ in pairs(itemBillboards) do
+        if not tool.Parent or tool:FindFirstAncestorOfClass("Backpack") then removeItemESP(tool) end
+    end
+end
+
+ESPTab:Toggle({
+    Title = "物品透视",
+    Default = false,
+    Callback = function(state)
+        itemESPEnabled = state
+        if state then
+            task.spawn(function()
+                while itemESPEnabled do updateItemESP() task.wait(0.5) end
+                for tool in pairs(itemBillboards) do removeItemESP(tool) end
+            end)
+        else
+            for tool in pairs(itemBillboards) do removeItemESP(tool) end
+        end
+    end
+})
+
+local farmEnabled = false
+local farmThread = nil
+local farmThreshold = 60
+local homePosition = nil
+
+local function getEnergy()
+    local char = player.Character
+    if not char then return nil end
+    local charData = char:FindFirstChild("CharacterData")
+    if not charData then return nil end
+    local energy = charData:FindFirstChild("Energy")
+    if not energy then return nil end
+    return energy.Value
+end
+
+local function findSafeFood()
+    local folder = Workspace.Map.Util.Items
+    if not folder then return nil end
+    local best = nil
+    local bestDist = math.huge
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+
+    for _, obj in ipairs(folder:GetDescendants()) do
+        if obj:IsA("Tool") and not obj:FindFirstAncestorOfClass("Backpack") then
+            local stats = obj:FindFirstChild("ToolStats")
+            if stats and (stats:FindFirstChild("HungerRestore") or stats:FindFirstChild("ThirstRestore")) then
+                local handle = obj:FindFirstChild("Handle")
+                if handle then
+                    if not isNearNPC(handle.Position) then
+                        local dist = (handle.Position - root.Position).Magnitude
+                        if dist < bestDist then
+                            bestDist = dist
+                            best = obj
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return best
+end
+
+local function pickupFood(target)
+    local char = player.Character
+    if not char then return false end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not root or not humanoid or humanoid.Health <= 0 then return false end
+
+    if char:FindFirstChildWhichIsA("Tool") then
+        humanoid:UnequipTools()
+        task.wait(0.3)
+    end
+
+    local handle = target:FindFirstChild("Handle")
+    local pos = handle and handle.Position or target:GetPivot().Position
+    root.CFrame = CFrame.new(pos + Vector3.new(0, 2, 2))
+    task.wait(0.5)
+
+    ReplicatedStorage.Remotes.RequestPickupItem:FireServer(target)
+
+    local start = tick()
+    while tick() - start < 3 do
+        if not target.Parent or target:FindFirstAncestorOfClass("Backpack") then break end
+        task.wait(0.1)
+    end
+
+    local toolInBag = player.Backpack:FindFirstChild(target.Name)
+    if toolInBag then
+        ReplicatedStorage.Remotes.Item.Equipped:FireServer(toolInBag)
+        return true
+    end
+    return false
+end
+
+local function goHome()
+    local char = player.Character
+    if not char or not homePosition then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if root and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+        root.CFrame = CFrame.new(homePosition)
+    end
+end
+
+local function waitForRespawn()
+    repeat task.wait(1) until player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    task.wait(0.3)
+    goHome()
+end
+
+FarmTab:Toggle({
+    Title = "自动进食补给",
+    Desc = "搭配连点器使用最佳",
+    Default = false,
+    Callback = function(state)
+        farmEnabled = state
+        if state then
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                homePosition = char.HumanoidRootPart.Position
+            end
+            farmThread = task.spawn(function()
+                while farmEnabled do
+                    if getBackpackCount() >= maxSlots then
+                        goHome()
+                        task.wait(0.5)
+                        continue
+                    end
+
+                    if not player.Character or not player.Character:FindFirstChild("Humanoid") or player.Character.Humanoid.Health <= 0 then
+                        waitForRespawn()
+                        continue
+                    end
+
+                    local energy = getEnergy()
+                    if energy and energy < farmThreshold then
+                        local food = findSafeFood()
+                        if food then
+                            if pickupFood(food) then
+                                if getEnergy() >= farmThreshold then
+                                    goHome()
+                                end
+                            end
+                        else
+                            WindUI:Notify({ Title = "补给", Content = "安全范围内无食物，等待下次扫描", Duration = 2 })
+                        end
+                    else
+                        if homePosition then
+                            local char = player.Character
+                            if char and char:FindFirstChild("HumanoidRootPart") then
+                                local currentPos = char.HumanoidRootPart.Position
+                                if (currentPos - homePosition).Magnitude > 5 then
+                                    goHome()
+                                end
+                            end
+                        end
+                    end
+                    task.wait(0.5)
+                end
+            end)
+        else
+            if farmThread then task.cancel(farmThread) farmThread = nil end
+            homePosition = nil
+        end
+    end
+})
+
+FarmTab:Slider({
+    Title = "能量低于多少开始捡",
+    Value = { Min = 10, Max = 90, Default = 60 },
+    Callback = function(value)
+        farmThreshold = math.floor(value)
+    end
+})
+
+local antiAFKEnabled = false
+local antiAFKThread = nil
+
+FarmTab:Toggle({
+    Title = "防挂机走动",
+    Desc = "每10秒自动小范围移动，防止被踢",
+    Default = false,
+    Callback = function(state)
+        antiAFKEnabled = state
+        if state then
+            antiAFKThread = task.spawn(function()
+                while antiAFKEnabled do
+                    local char = player.Character
+                    if char then
+                        local humanoid = char:FindFirstChildOfClass("Humanoid")
+                        local root = char:FindFirstChild("HumanoidRootPart")
+                        if humanoid and root and humanoid.Health > 0 then
+                            humanoid:MoveTo(root.Position + Vector3.new(math.random(-10, 10), 0, math.random(-10, 10)))
+                        end
+                    end
+                    task.wait(10)
+                end
+            end)
+        else
+            if antiAFKThread then
+                task.cancel(antiAFKThread)
+                antiAFKThread = nil
+            end
+        end
+    end
+})
+
+local npcAvoidEnabled = false
+local npcAvoidThread = nil
+local safeZone = Vector3.new(371.58, 36.46, -540.39)
+local npcDetectRange = 5
+
+local function isPlayerNearNPC()
+    local char = player.Character
+    if not char then return false end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+    local enemiesFolder = workspace:FindFirstChild("Enemies")
+    if not enemiesFolder then return false end
+    for _, npc in ipairs(enemiesFolder:GetChildren()) do
+        if npc:IsA("Model") and npc:FindFirstChild("HumanoidRootPart") then
+            local dist = (npc.HumanoidRootPart.Position - root.Position).Magnitude
+            if dist <= npcDetectRange then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+FarmTab:Toggle({
+    Title = "NPC回避",
+    Desc = "NPC靠近5米内传送至安全坐标",
+    Default = false,
+    Callback = function(state)
+        npcAvoidEnabled = state
+        if state then
+            npcAvoidThread = task.spawn(function()
+                while npcAvoidEnabled do
+                    if not player.Character or not player.Character:FindFirstChild("Humanoid") or player.Character.Humanoid.Health <= 0 then
+                        task.wait(1)
+                        continue
+                    end
+
+                    if isPlayerNearNPC() then
+                        local char = player.Character
+                        local root = char and char:FindFirstChild("HumanoidRootPart")
+                        if root then
+                            root.CFrame = CFrame.new(safeZone)
+                            WindUI:Notify({ Title = "NPC回避", Content = "检测到NPC靠近，已传送回避", Duration = 2 })
+                            task.wait(3)
+                        end
+                    end
+                    task.wait(0.3)
+                end
+            end)
+        else
+            if npcAvoidThread then
+                task.cancel(npcAvoidThread)
+                npcAvoidThread = nil
+            end
+        end
+    end
+})
+
+Window:SelectTab(1)
