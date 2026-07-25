@@ -57,7 +57,7 @@ local function loadWindUI()
 end
 
 local WindUI = loadWindUI()
-if not WindUI then print("WindUI加载失败，请检查注入器网络权限") return end
+if not WindUI then print("WindUI加载失败，请检查网络权限") return end
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -89,9 +89,9 @@ if ensureIcon() then iconAsset = getcustomasset(iconPath) else iconAsset = "rbxa
 local icons = {"skull","star","heart","crown","shield","wrench","rocket","fire","bolt","moon","sun","globe","terminal","gamepad","dollar-sign","gift","plane","ship","car","bicycle","tree","flower","snowflake","rainbow","flask","atom","satellite","wifi","folder","calendar","clock","alarm","mail","phone","laptop","play","pause","infinity","thumbs-up","pray","yinyang","earth-americas","volcano","campfire","medkit","ambulance","wheelchair","universal-access","bug","lightbulb","coffee"}
 
 local Window = WindUI:CreateWindow({
-    Title = "超市生存 Hub",
+    Title = "超市生存 Hub V2.0",
     Icon = icons[math.random(#icons)],
-    Author = "by.小梦",
+    Author = "私人定制",
     Folder = Folder,
     Size = UDim2.fromOffset(540, 460),
     Theme = "Dark",
@@ -298,13 +298,13 @@ MainTab:Toggle({
 
                         if char:FindFirstChildWhichIsA("Tool") then
                             humanoid:UnequipTools()
-                            task.wait(0.3)
+                            task.wait(0.05)
                         end
 
                         local handle = tool:FindFirstChild("Handle")
                         local targetPos = handle and handle.Position or tool:GetPivot().Position
                         root.CFrame = CFrame.new(targetPos + Vector3.new(0, 2, 2))
-                        task.wait(0.3)
+                        task.wait(0.05)
 
                         RequestPickupItem:FireServer(tool)
 
@@ -315,14 +315,14 @@ MainTab:Toggle({
                                 picked = true
                                 break
                             end
-                            task.wait(0.1)
+                            task.wait(0.05)
                         end
 
                         if picked then
                             local toolInBag = player.Backpack:FindFirstChild(tool.Name)
                             if toolInBag then ItemEquipped:FireServer(toolInBag) end
                         end
-                        task.wait(0.2)
+                        task.wait(0.05)
                     end
                     task.wait(0.5)
                 end
@@ -908,10 +908,37 @@ ESPTab:Toggle({
     end
 })
 
-local farmEnabled = false
-local farmThread = nil
-local farmThreshold = 60
 local homePosition = nil
+local isAvoiding = false
+local busy = false
+
+local function isPlayerNearNPC()
+    local char = player.Character
+    if not char then return false end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+    local enemiesFolder = workspace:FindFirstChild("Enemies")
+    if not enemiesFolder then return false end
+    for _, npc in ipairs(enemiesFolder:GetChildren()) do
+        if npc:IsA("Model") and npc:FindFirstChild("HumanoidRootPart") then
+            local dist = (npc.HumanoidRootPart.Position - root.Position).Magnitude
+            if npc.Name == "Roach" then
+                if dist <= 10 then return true end
+            else
+                if dist <= 5 then return true end
+            end
+        end
+    end
+    return false
+end
+
+local function getHealthPercent()
+    local char = player.Character
+    if not char then return nil end
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum then return nil end
+    return (hum.Health / hum.MaxHealth) * 100
+end
 
 local function getEnergy()
     local char = player.Character
@@ -937,13 +964,11 @@ local function findSafeFood()
             local stats = obj:FindFirstChild("ToolStats")
             if stats and (stats:FindFirstChild("HungerRestore") or stats:FindFirstChild("ThirstRestore")) then
                 local handle = obj:FindFirstChild("Handle")
-                if handle then
-                    if not isNearNPC(handle.Position) then
-                        local dist = (handle.Position - root.Position).Magnitude
-                        if dist < bestDist then
-                            bestDist = dist
-                            best = obj
-                        end
+                if handle and not isNearNPC(handle.Position) then
+                    local dist = (handle.Position - root.Position).Magnitude
+                    if dist < bestDist then
+                        bestDist = dist
+                        best = obj
                     end
                 end
             end
@@ -952,7 +977,65 @@ local function findSafeFood()
     return best
 end
 
-local function pickupFood(target)
+local function findSafeMedical()
+    local folder = Workspace.Map.Util.Items
+    if not folder then return nil end
+    local bestMedkit = nil
+    local bestBandage = nil
+    local bestMedkitDist = math.huge
+    local bestBandageDist = math.huge
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+
+    for _, obj in ipairs(folder:GetDescendants()) do
+        if obj:IsA("Tool") and not obj:FindFirstAncestorOfClass("Backpack") then
+            local handle = obj:FindFirstChild("Handle")
+            if not handle or isNearNPC(handle.Position) then continue end
+            local dist = (handle.Position - root.Position).Magnitude
+            if obj.Name == "Medkit" and dist < bestMedkitDist then
+                bestMedkitDist = dist
+                bestMedkit = obj
+            elseif obj.Name == "Bandage" and dist < bestBandageDist then
+                bestBandageDist = dist
+                bestBandage = obj
+            end
+        end
+    end
+
+    if bestMedkit then return bestMedkit end
+    if bestBandage then return bestBandage end
+    return nil
+end
+
+local function findNearestToken()
+    local folder = Workspace.Map.Util.Items
+    if not folder then return nil end
+    local best = nil
+    local bestDist = math.huge
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+
+    for _, obj in ipairs(folder:GetDescendants()) do
+        if obj:IsA("Tool") and not obj:FindFirstAncestorOfClass("Backpack") then
+            local name = obj.Name
+            if name == "Token" or name:find("Token") then
+                local handle = obj:FindFirstChild("Handle")
+                if handle then
+                    local dist = (handle.Position - root.Position).Magnitude
+                    if dist < bestDist then
+                        bestDist = dist
+                        best = obj
+                    end
+                end
+            end
+        end
+    end
+    return best
+end
+
+local function pickupItem(target)
     local char = player.Character
     if not char then return false end
     local root = char:FindFirstChild("HumanoidRootPart")
@@ -961,20 +1044,20 @@ local function pickupFood(target)
 
     if char:FindFirstChildWhichIsA("Tool") then
         humanoid:UnequipTools()
-        task.wait(0.3)
+        task.wait(0.05)
     end
 
     local handle = target:FindFirstChild("Handle")
     local pos = handle and handle.Position or target:GetPivot().Position
     root.CFrame = CFrame.new(pos + Vector3.new(0, 2, 2))
-    task.wait(0.5)
+    task.wait(0.05)
 
     ReplicatedStorage.Remotes.RequestPickupItem:FireServer(target)
 
     local start = tick()
-    while tick() - start < 3 do
+    while tick() - start < 2 do
         if not target.Parent or target:FindFirstAncestorOfClass("Backpack") then break end
-        task.wait(0.1)
+        task.wait(0.05)
     end
 
     local toolInBag = player.Backpack:FindFirstChild(target.Name)
@@ -996,9 +1079,22 @@ end
 
 local function waitForRespawn()
     repeat task.wait(1) until player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    task.wait(0.3)
+    task.wait(0.05)
     goHome()
 end
+
+local function forceTeleportToSafeZone()
+    local char = player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if root then
+        root.CFrame = CFrame.new(371.58, 36.46, -540.39)
+    end
+end
+
+local farmEnabled = false
+local farmThread = nil
+local farmThreshold = 60
 
 FarmTab:Toggle({
     Title = "自动进食补给",
@@ -1007,43 +1103,44 @@ FarmTab:Toggle({
     Callback = function(state)
         farmEnabled = state
         if state then
-            local char = player.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                homePosition = char.HumanoidRootPart.Position
-            end
+            homePosition = player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character.HumanoidRootPart.Position or homePosition
             farmThread = task.spawn(function()
                 while farmEnabled do
+                    if isAvoiding or medicalEnabled or busy then
+                        task.wait(0.5)
+                        continue
+                    end
                     if getBackpackCount() >= maxSlots then
                         goHome()
                         task.wait(0.5)
                         continue
                     end
-
-                    if not player.Character or not player.Character:FindFirstChild("Humanoid") or player.Character.Humanoid.Health <= 0 then
+                    if not player.Character or player.Character.Humanoid.Health <= 0 then
                         waitForRespawn()
                         continue
                     end
-
+                    if isPlayerNearNPC() then
+                        task.wait(0.5)
+                        continue
+                    end
                     local energy = getEnergy()
                     if energy and energy < farmThreshold then
                         local food = findSafeFood()
                         if food then
-                            if pickupFood(food) then
-                                if getEnergy() >= farmThreshold then
-                                    goHome()
-                                end
+                            busy = true
+                            if pickupItem(food) then
+                                if getEnergy() >= farmThreshold then goHome() end
                             end
+                            busy = false
                         else
-                            WindUI:Notify({ Title = "补给", Content = "安全范围内无食物，等待下次扫描", Duration = 2 })
+                            WindUI:Notify({ Title = "补给", Content = "无安全食物", Duration = 2 })
                         end
                     else
                         if homePosition then
                             local char = player.Character
                             if char and char:FindFirstChild("HumanoidRootPart") then
                                 local currentPos = char.HumanoidRootPart.Position
-                                if (currentPos - homePosition).Magnitude > 5 then
-                                    goHome()
-                                end
+                                if (currentPos - homePosition).Magnitude > 5 then goHome() end
                             end
                         end
                     end
@@ -1059,98 +1156,149 @@ FarmTab:Toggle({
 
 FarmTab:Slider({
     Title = "能量低于多少开始捡",
-    Value = { Min = 10, Max = 90, Default = 60 },
-    Callback = function(value)
-        farmThreshold = math.floor(value)
-    end
+    Value = { Min = 0, Max = 100, Default = 60 },
+    Callback = function(value) farmThreshold = math.floor(value) end
 })
 
-local antiAFKEnabled = false
-local antiAFKThread = nil
+local medicalEnabled = false
+local medicalThread = nil
+local medThreshold = 90
 
 FarmTab:Toggle({
-    Title = "防挂机走动",
-    Desc = "每10秒自动小范围移动，防止被踢",
+    Title = "自动医疗补给",
+    Desc = "生命低于阈值时自动捡医疗箱/绷带",
     Default = false,
     Callback = function(state)
-        antiAFKEnabled = state
+        medicalEnabled = state
         if state then
-            antiAFKThread = task.spawn(function()
-                while antiAFKEnabled do
-                    local char = player.Character
-                    if char then
-                        local humanoid = char:FindFirstChildOfClass("Humanoid")
-                        local root = char:FindFirstChild("HumanoidRootPart")
-                        if humanoid and root and humanoid.Health > 0 then
-                            humanoid:MoveTo(root.Position + Vector3.new(math.random(-10, 10), 0, math.random(-10, 10)))
+            homePosition = player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character.HumanoidRootPart.Position or homePosition
+            medicalThread = task.spawn(function()
+                while medicalEnabled do
+                    if isAvoiding or busy then
+                        task.wait(0.5)
+                        continue
+                    end
+                    if getBackpackCount() >= maxSlots then
+                        goHome()
+                        task.wait(0.5)
+                        continue
+                    end
+                    if not player.Character or player.Character.Humanoid.Health <= 0 then
+                        waitForRespawn()
+                        continue
+                    end
+                    if isPlayerNearNPC() then
+                        task.wait(0.5)
+                        continue
+                    end
+                    local hpPercent = getHealthPercent()
+                    if hpPercent and hpPercent < medThreshold then
+                        local medical = findSafeMedical()
+                        if medical then
+                            busy = true
+                            if pickupItem(medical) then
+                                local newHp = getHealthPercent()
+                                if newHp and newHp >= medThreshold then goHome() end
+                            end
+                            busy = false
+                        end
+                    else
+                        if homePosition then
+                            local char = player.Character
+                            if char and char:FindFirstChild("HumanoidRootPart") then
+                                local currentPos = char.HumanoidRootPart.Position
+                                if (currentPos - homePosition).Magnitude > 5 then goHome() end
+                            end
                         end
                     end
-                    task.wait(10)
+                    task.wait(0.5)
                 end
             end)
         else
-            if antiAFKThread then
-                task.cancel(antiAFKThread)
-                antiAFKThread = nil
-            end
+            if medicalThread then task.cancel(medicalThread) medicalThread = nil end
+            homePosition = nil
         end
     end
+})
+
+FarmTab:Slider({
+    Title = "生命低于多少开始捡",
+    Value = { Min = 0, Max = 100, Default = 90 },
+    Callback = function(value) medThreshold = math.floor(value) end
 })
 
 local npcAvoidEnabled = false
 local npcAvoidThread = nil
-local safeZone = Vector3.new(371.58, 36.46, -540.39)
-local npcDetectRange = 5
-
-local function isPlayerNearNPC()
-    local char = player.Character
-    if not char then return false end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return false end
-    local enemiesFolder = workspace:FindFirstChild("Enemies")
-    if not enemiesFolder then return false end
-    for _, npc in ipairs(enemiesFolder:GetChildren()) do
-        if npc:IsA("Model") and npc:FindFirstChild("HumanoidRootPart") then
-            local dist = (npc.HumanoidRootPart.Position - root.Position).Magnitude
-            if dist <= npcDetectRange then
-                return true
-            end
-        end
-    end
-    return false
-end
 
 FarmTab:Toggle({
     Title = "NPC回避",
-    Desc = "NPC靠近5米内传送至安全坐标",
+    Desc = "蟑螂10米 其他5米",
     Default = false,
     Callback = function(state)
         npcAvoidEnabled = state
         if state then
             npcAvoidThread = task.spawn(function()
                 while npcAvoidEnabled do
-                    if not player.Character or not player.Character:FindFirstChild("Humanoid") or player.Character.Humanoid.Health <= 0 then
+                    if not player.Character or player.Character.Humanoid.Health <= 0 then
                         task.wait(1)
                         continue
                     end
-
                     if isPlayerNearNPC() then
-                        local char = player.Character
-                        local root = char and char:FindFirstChild("HumanoidRootPart")
-                        if root then
-                            root.CFrame = CFrame.new(safeZone)
-                            WindUI:Notify({ Title = "NPC回避", Content = "检测到NPC靠近，已传送回避", Duration = 2 })
-                            task.wait(3)
-                        end
+                        isAvoiding = true
+                        forceTeleportToSafeZone()
+                        WindUI:Notify({ Title = "NPC回避", Content = "传送至安全区", Duration = 2 })
+                        task.wait(3)
+                        isAvoiding = false
                     end
                     task.wait(0.3)
                 end
             end)
         else
-            if npcAvoidThread then
-                task.cancel(npcAvoidThread)
-                npcAvoidThread = nil
-            end
+            if npcAvoidThread then task.cancel(npcAvoidThread) npcAvoidThread = nil end
+            isAvoiding = false
+        end
+    end
+})
+
+local tokenPurpleEnabled = false
+local tokenThread = nil
+
+FarmTab:Toggle({
+    Title = "自动拾取令牌",
+    Desc = "检测到令牌时传送拾取并回家",
+    Default = false,
+    Callback = function(state)
+        tokenPurpleEnabled = state
+        if state then
+            homePosition = player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character.HumanoidRootPart.Position or homePosition
+            tokenThread = task.spawn(function()
+                while tokenPurpleEnabled do
+                    if isAvoiding then
+                        task.wait(0.5)
+                        continue
+                    end
+                    if not player.Character or player.Character.Humanoid.Health <= 0 then
+                        waitForRespawn()
+                        continue
+                    end
+                    if isPlayerNearNPC() then
+                        task.wait(0.5)
+                        continue
+                    end
+                    local token = findNearestToken()
+                    if token then
+                        busy = true
+                        pickupItem(token)
+                        task.wait(0.5)
+                        goHome()
+                        busy = false
+                    end
+                    task.wait(0.5)
+                end
+            end)
+        else
+            if tokenThread then task.cancel(tokenThread) tokenThread = nil end
+            homePosition = nil
         end
     end
 })
