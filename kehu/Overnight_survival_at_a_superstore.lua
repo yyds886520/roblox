@@ -89,9 +89,9 @@ if ensureIcon() then iconAsset = getcustomasset(iconPath) else iconAsset = "rbxa
 local icons = {"skull","star","heart","crown","shield","wrench","rocket","fire","bolt","moon","sun","globe","terminal","gamepad","dollar-sign","gift","plane","ship","car","bicycle","tree","flower","snowflake","rainbow","flask","atom","satellite","wifi","folder","calendar","clock","alarm","mail","phone","laptop","play","pause","infinity","thumbs-up","pray","yinyang","earth-americas","volcano","campfire","medkit","ambulance","wheelchair","universal-access","bug","lightbulb","coffee"}
 
 local Window = WindUI:CreateWindow({
-    Title = "超市生存 Hub V2.0",
+    Title = "超市生存 Hub V2.0.3",
     Icon = icons[math.random(#icons)],
-    Author = "私人定制",
+    Author = "by.小梦",
     Folder = Folder,
     Size = UDim2.fromOffset(540, 460),
     Theme = "Dark",
@@ -922,11 +922,7 @@ local function isPlayerNearNPC()
     for _, npc in ipairs(enemiesFolder:GetChildren()) do
         if npc:IsA("Model") and npc:FindFirstChild("HumanoidRootPart") then
             local dist = (npc.HumanoidRootPart.Position - root.Position).Magnitude
-            if npc.Name == "Roach" then
-                if dist <= 10 then return true end
-            else
-                if dist <= 5 then return true end
-            end
+            if dist <= 10 then return true end
         end
     end
     return false
@@ -1092,6 +1088,26 @@ local function forceTeleportToSafeZone()
     end
 end
 
+local function cleanTrash()
+    local folder = Workspace.Map.Util.Items
+    if not folder then return end
+    local keepNames = {"Ham", "Hotdog", "Burger", "Drink"}
+    for _, obj in ipairs(folder:GetDescendants()) do
+        if obj:IsA("Tool") and not obj:FindFirstAncestorOfClass("Backpack") then
+            local keep = false
+            for _, kw in ipairs(keepNames) do
+                if obj.Name:lower() == kw:lower() then
+                    keep = true
+                    break
+                end
+            end
+            if not keep then
+                pcall(function() obj:Destroy() end)
+            end
+        end
+    end
+end
+
 local farmEnabled = false
 local farmThread = nil
 local farmThreshold = 60
@@ -1232,7 +1248,7 @@ local npcAvoidThread = nil
 
 FarmTab:Toggle({
     Title = "NPC回避",
-    Desc = "蟑螂10米 其他5米",
+    Desc = "全员10米",
     Default = false,
     Callback = function(state)
         npcAvoidEnabled = state
@@ -1299,6 +1315,31 @@ FarmTab:Toggle({
         else
             if tokenThread then task.cancel(tokenThread) tokenThread = nil end
             homePosition = nil
+        end
+    end
+})
+
+local cleanEnabled = false
+local cleanThread = nil
+
+FarmTab:Toggle({
+    Title = "定时清理",
+    Desc = "每5秒清除无用物品（只留火腿/热狗/汉堡/饮料）",
+    Default = false,
+    Callback = function(state)
+        cleanEnabled = state
+        if state then
+            cleanThread = task.spawn(function()
+                while cleanEnabled do
+                    cleanTrash()
+                    task.wait(5)
+                end
+            end)
+        else
+            if cleanThread then
+                task.cancel(cleanThread)
+                cleanThread = nil
+            end
         end
     end
 })
