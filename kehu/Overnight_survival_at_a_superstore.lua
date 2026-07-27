@@ -1,49 +1,3 @@
-local HttpService = game:GetService("HttpService")
-local translationCache = {}
-
-local function detectLanguage(text)
-    local cjk = 0
-    local en = 0
-    for _, code in utf8.codes(text) do
-        local char = utf8.char(code)
-        if char:match("[\228-\233][\128-\191][\128-\191]") or char:match("[\227][\128-\191][\128-\191]") then
-            cjk = cjk + 1
-        elseif char:match("[%a]") then
-            en = en + 1
-        end
-    end
-    if cjk > 3 then return "zh-CN" end
-    return "en"
-end
-
-local function translateGoogle(text, fromLang, toLang)
-    local url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=" .. fromLang .. "&tl=" .. toLang .. "&dt=t&q=" .. HttpService:UrlEncode(text)
-    local ok, body = pcall(game.HttpGet, game, url)
-    if not ok or not body then return nil end
-    local ok2, data = pcall(HttpService.JSONDecode, HttpService, body)
-    if not ok2 or not data or not data[1] then return nil end
-    local result = ""
-    for _, part in ipairs(data[1]) do
-        if part[1] then result = result .. part[1] end
-    end
-    return result ~= "" and result or nil
-end
-
-local function translateText(text)
-    if translationCache[text] then return translationCache[text] end
-    local detected = detectLanguage(text)
-    if detected == "zh-CN" then
-        translationCache[text] = text
-        return text
-    end
-    local translated = translateGoogle(text, detected, "zh-CN")
-    if translated then
-        translationCache[text] = translated
-        return translated
-    end
-    return text
-end
-
 local function loadWindUI()
     local ok, result = pcall(function()
         return loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
@@ -183,7 +137,7 @@ local function createItemListGui()
     if folder then
         for _, obj in ipairs(folder:GetDescendants()) do
             if obj:IsA("Tool") then
-                local cn = translateText(obj.Name)
+                local cn = obj.Name
                 if not table.find(seen, cn) then
                     table.insert(seen, cn)
                 end
@@ -281,7 +235,7 @@ MainTab:Toggle({
                     if TARGET_FOLDER then
                         for _, obj in ipairs(TARGET_FOLDER:GetDescendants()) do
                             if obj:IsA("Tool") and not obj:FindFirstAncestorOfClass("Backpack") then
-                                local cn = translateText(obj.Name)
+                                local cn = obj.Name
                                 if selectedChinese == "全部" or cn == selectedChinese then
                                     local handle = obj:FindFirstChild("Handle")
                                     if handle and not isNearNPC(handle.Position) then
@@ -840,7 +794,7 @@ end
 local function createItemESP(tool)
     local handle = tool:FindFirstChild("Handle")
     if not handle then return end
-    local cn = translateText(tool.Name)
+    local cn = tool.Name
     local color = Color3.fromRGB(255, 200, 100)
 
     local billboard = Instance.new("BillboardGui")
@@ -880,7 +834,7 @@ local function updateItemESP()
                     local dist = (handle.Position - playerPos).Magnitude
                     local label = itemBillboards[obj]:FindFirstChildWhichIsA("TextLabel")
                     if label then
-                        local cn = translateText(obj.Name)
+                        local cn = obj.Name
                         label.Text = cn .. " [" .. string.format("%.2f", dist) .. "]"
                     end
                 end
